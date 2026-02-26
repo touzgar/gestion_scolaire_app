@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "919288512507",
+    "project_id": "gestionscolaire-3b0a2",
+    "storage_bucket": "gestionscolaire-3b0a2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:919288512507:android:388569de1145f26230955e",
+        "android_client_info": {
+          "package_name": "com.example.gestion_scolaire_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "919288512507-v4v67b6sq9oahqfo2hbs7i0651hp80r3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJCaz7LEbJUZDPJeYMvBUhbrmsqXdKKo0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "919288512507-v4v67b6sq9oahqfo2hbs7i0651hp80r3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
