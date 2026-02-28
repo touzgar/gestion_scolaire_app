@@ -1,11 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../blocs/auth/auth_bloc.dart';
-import '../../blocs/auth/auth_state.dart';
-import '../../blocs/auth/auth_event.dart';
-import '../../../domain/entities/user_role.dart';
+
+// ─── Élève pages ───
+import '../eleve/eleve_dashboard_page.dart';
+import '../eleve/eleve_notes_page.dart';
+import '../eleve/eleve_emploi_du_temps_page.dart';
+import '../eleve/eleve_devoirs_page.dart';
+import '../eleve/eleve_profile_page.dart';
+
+// ─── Professeur pages ───
+import '../professeur/prof_classes_page.dart';
+import '../professeur/prof_saisie_notes_page.dart';
+import '../professeur/prof_messages_page.dart';
+import '../professeur/prof_stats_page.dart';
+import '../professeur/prof_profile_page.dart';
+
+// ─── Admin pages ───
+import '../admin/admin_dashboard_page.dart';
+import '../admin/users_management_page.dart';
+import '../admin/classes_management_page.dart';
+import '../admin/admin_stats_page.dart';
+import '../admin/admin_settings_page.dart';
+
+// ─── Vie Scolaire pages ───
+import '../vie_scolaire/vs_dashboard_page.dart';
+import '../vie_scolaire/vs_absences_page.dart';
+import '../vie_scolaire/vs_retards_page.dart';
+import '../vie_scolaire/vs_events_page.dart';
+import '../vie_scolaire/vs_profile_page.dart';
 
 /// Shell Élève / Parent — Navigation par BottomNavigationBar
 class EleveShell extends StatefulWidget {
@@ -18,10 +40,18 @@ class EleveShell extends StatefulWidget {
 class _EleveShellState extends State<EleveShell> {
   int _currentIndex = 0;
 
+  final _pages = const <Widget>[
+    EleveDashboardPage(),
+    EleveNotesPage(),
+    EleveEmploiDuTempsPage(),
+    EleveDevoirsPage(),
+    EleveProfilePage(),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _buildBody(),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -50,79 +80,6 @@ class _EleveShellState extends State<EleveShell> {
       ),
     );
   }
-
-  Widget _buildBody() {
-    switch (_currentIndex) {
-      case 0:
-        return const _DashboardPlaceholder(title: 'Tableau de bord Élève');
-      case 1:
-        return const _DashboardPlaceholder(title: 'Mes Notes');
-      case 2:
-        return const _DashboardPlaceholder(title: 'Emploi du temps');
-      case 3:
-        return const _DashboardPlaceholder(title: 'Devoirs');
-      case 4:
-        return _buildProfilePage();
-      default:
-        return const _DashboardPlaceholder(title: 'Tableau de bord');
-    }
-  }
-
-  Widget _buildProfilePage() {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        if (state is AuthAuthenticated) {
-          final user = state.user;
-          return Scaffold(
-            appBar: AppBar(title: const Text(AppStrings.profil)),
-            body: ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: AppColors.primaryNavy,
-                  child: Text(
-                    '${user.prenom[0]}${user.nom[0]}',
-                    style: const TextStyle(fontSize: 32, color: Colors.white),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  user.nomComplet,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  user.role.displayName,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  user.email,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    context.read<AuthBloc>().add(AuthLogoutRequested());
-                  },
-                  icon: const Icon(Icons.logout),
-                  label: const Text(AppStrings.logout),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.error,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        return const SizedBox.shrink();
-      },
-    );
-  }
 }
 
 /// Shell Professeur
@@ -136,10 +93,18 @@ class ProfesseurShell extends StatefulWidget {
 class _ProfesseurShellState extends State<ProfesseurShell> {
   int _currentIndex = 0;
 
+  final _pages = const <Widget>[
+    ProfClassesPage(),
+    ProfSaisieNotesPage(),
+    ProfMessagesPage(),
+    ProfStatsPage(),
+    ProfProfilePage(),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _buildBody(),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -168,23 +133,6 @@ class _ProfesseurShellState extends State<ProfesseurShell> {
       ),
     );
   }
-
-  Widget _buildBody() {
-    switch (_currentIndex) {
-      case 0:
-        return const _DashboardPlaceholder(title: 'Mes Classes');
-      case 1:
-        return const _DashboardPlaceholder(title: 'Saisie des Notes');
-      case 2:
-        return const _DashboardPlaceholder(title: 'Messagerie');
-      case 3:
-        return const _DashboardPlaceholder(title: 'Statistiques');
-      case 4:
-        return const _DashboardPlaceholder(title: 'Profil Professeur');
-      default:
-        return const _DashboardPlaceholder(title: 'Mes Classes');
-    }
-  }
 }
 
 /// Shell Administration
@@ -198,10 +146,18 @@ class AdminShell extends StatefulWidget {
 class _AdminShellState extends State<AdminShell> {
   int _currentIndex = 0;
 
+  final _pages = const <Widget>[
+    AdminDashboardPage(),
+    UsersManagementPage(),
+    ClassesManagementPage(),
+    AdminStatsPage(),
+    AdminSettingsPage(),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _buildBody(),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -230,23 +186,6 @@ class _AdminShellState extends State<AdminShell> {
       ),
     );
   }
-
-  Widget _buildBody() {
-    switch (_currentIndex) {
-      case 0:
-        return const _DashboardPlaceholder(title: 'Tableau de bord Admin');
-      case 1:
-        return const _DashboardPlaceholder(title: 'Gestion Utilisateurs');
-      case 2:
-        return const _DashboardPlaceholder(title: 'Gestion Classes');
-      case 3:
-        return const _DashboardPlaceholder(title: 'Statistiques Établissement');
-      case 4:
-        return const _DashboardPlaceholder(title: 'Paramètres');
-      default:
-        return const _DashboardPlaceholder(title: 'Admin');
-    }
-  }
 }
 
 /// Shell Vie Scolaire
@@ -260,10 +199,18 @@ class VieScolaireShell extends StatefulWidget {
 class _VieScolaireShellState extends State<VieScolaireShell> {
   int _currentIndex = 0;
 
+  final _pages = const <Widget>[
+    VsDashboardPage(),
+    VsAbsencesPage(),
+    VsRetardsPage(),
+    VsEventsPage(),
+    VsProfilePage(),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _buildBody(),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -283,56 +230,6 @@ class _VieScolaireShellState extends State<VieScolaireShell> {
             label: AppStrings.profil,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    switch (_currentIndex) {
-      case 0:
-        return const _DashboardPlaceholder(title: 'Vie Scolaire');
-      case 1:
-        return const _DashboardPlaceholder(title: 'Gestion Absences');
-      case 2:
-        return const _DashboardPlaceholder(title: 'Gestion Retards');
-      case 3:
-        return const _DashboardPlaceholder(title: 'Événements');
-      case 4:
-        return const _DashboardPlaceholder(title: 'Profil');
-      default:
-        return const _DashboardPlaceholder(title: 'Vie Scolaire');
-    }
-  }
-}
-
-/// Placeholder générique pour les pages en cours de développement
-class _DashboardPlaceholder extends StatelessWidget {
-  final String title;
-
-  const _DashboardPlaceholder({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.construction_rounded,
-              size: 64,
-              color: AppColors.accentOrange.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(
-              'En cours de développement...',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
       ),
     );
   }

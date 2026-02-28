@@ -323,8 +323,9 @@ class _SignUpPageState extends State<SignUpPage> {
                             ),
                           ],
                           onChanged: (role) {
-                            if (role != null)
+                            if (role != null) {
                               setState(() => _selectedRole = role);
+                            }
                           },
                         ),
                       ),
