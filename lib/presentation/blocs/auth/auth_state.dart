@@ -37,5 +37,15 @@ class AuthError extends AuthState {
   List<Object?> get props => [message];
 }
 
+/// Inscription réussie (sans auto-login)
+class AuthSignUpSuccess extends AuthState {
+  final String message;
+  const AuthSignUpSuccess({
+    this.message = 'Compte créé avec succès ! Connectez-vous.',
+  });
+  @override
+  List<Object?> get props => [message];
+}
+
 /// Mot de passe réinitialisé avec succès
 class AuthPasswordResetSent extends AuthState {}

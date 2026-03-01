@@ -169,6 +169,56 @@ class AppTheme {
         color: AppColors.surfaceVariant,
         thickness: 1,
       ),
+
+      // Dialog
+      dialogTheme: DialogThemeData(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titleTextStyle: GoogleFonts.roboto(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
+
+      // SnackBar
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        contentTextStyle: GoogleFonts.roboto(fontSize: 14, color: Colors.white),
+      ),
+
+      // Tab Bar
+      tabBarTheme: TabBarThemeData(
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white70,
+        indicatorColor: AppColors.accentOrange,
+        labelStyle: GoogleFonts.roboto(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: GoogleFonts.roboto(fontSize: 14),
+      ),
+
+      // Navigation Bar (Material 3)
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: Colors.white,
+        indicatorColor: AppColors.primaryNavy.withValues(alpha: 0.12),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return GoogleFonts.roboto(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryNavy,
+            );
+          }
+          return GoogleFonts.roboto(
+            fontSize: 11,
+            color: AppColors.textSecondary,
+          );
+        }),
+      ),
     );
   }
 }

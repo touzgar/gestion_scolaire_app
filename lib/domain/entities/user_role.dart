@@ -1,5 +1,5 @@
 /// Enum des rôles utilisateurs de l'application
-enum UserRole { eleve, professeur, parent, admin, vieScolaire }
+enum UserRole { eleve, professeur, admin }
 
 /// Extension pour afficher le nom du rôle en français
 extension UserRoleExtension on UserRole {
@@ -9,12 +9,8 @@ extension UserRoleExtension on UserRole {
         return 'Élève';
       case UserRole.professeur:
         return 'Professeur';
-      case UserRole.parent:
-        return 'Parent';
       case UserRole.admin:
         return 'Administration';
-      case UserRole.vieScolaire:
-        return 'Vie Scolaire';
     }
   }
 
@@ -24,12 +20,8 @@ extension UserRoleExtension on UserRole {
         return 'eleve';
       case UserRole.professeur:
         return 'professeur';
-      case UserRole.parent:
-        return 'parent';
       case UserRole.admin:
         return 'admin';
-      case UserRole.vieScolaire:
-        return 'vie_scolaire';
     }
   }
 
@@ -39,12 +31,8 @@ extension UserRoleExtension on UserRole {
         return UserRole.eleve;
       case 'professeur':
         return UserRole.professeur;
-      case 'parent':
-        return UserRole.parent;
       case 'admin':
         return UserRole.admin;
-      case 'vie_scolaire':
-        return UserRole.vieScolaire;
       default:
         return UserRole.eleve;
     }

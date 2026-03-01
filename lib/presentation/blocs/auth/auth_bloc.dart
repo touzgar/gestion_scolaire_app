@@ -53,14 +53,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(AuthLoading());
     try {
-      final user = await _authRepository.createUser(
+      await _authRepository.createUser(
         email: event.email,
         password: event.password,
         nom: event.nom,
         prenom: event.prenom,
         role: event.role,
       );
-      emit(AuthAuthenticated(user));
+      // Sign out so the user must log in manually
+      await _authRepository.signOut();
+      emit(const AuthSignUpSuccess());
     } catch (e) {
       emit(AuthError(e.toString()));
     }

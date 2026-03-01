@@ -11,23 +11,16 @@ import '../eleve/eleve_profile_page.dart';
 // ─── Professeur pages ───
 import '../professeur/prof_classes_page.dart';
 import '../professeur/prof_saisie_notes_page.dart';
+import '../professeur/prof_emploi_temps_page.dart';
 import '../professeur/prof_messages_page.dart';
-import '../professeur/prof_stats_page.dart';
 import '../professeur/prof_profile_page.dart';
 
 // ─── Admin pages ───
 import '../admin/admin_dashboard_page.dart';
 import '../admin/users_management_page.dart';
 import '../admin/classes_management_page.dart';
-import '../admin/admin_stats_page.dart';
+import '../admin/admin_emploi_temps_page.dart';
 import '../admin/admin_settings_page.dart';
-
-// ─── Vie Scolaire pages ───
-import '../vie_scolaire/vs_dashboard_page.dart';
-import '../vie_scolaire/vs_absences_page.dart';
-import '../vie_scolaire/vs_retards_page.dart';
-import '../vie_scolaire/vs_events_page.dart';
-import '../vie_scolaire/vs_profile_page.dart';
 
 /// Shell Élève / Parent — Navigation par BottomNavigationBar
 class EleveShell extends StatefulWidget {
@@ -96,8 +89,8 @@ class _ProfesseurShellState extends State<ProfesseurShell> {
   final _pages = const <Widget>[
     ProfClassesPage(),
     ProfSaisieNotesPage(),
+    ProfEmploiTempsPage(),
     ProfMessagesPage(),
-    ProfStatsPage(),
     ProfProfilePage(),
   ];
 
@@ -117,13 +110,10 @@ class _ProfesseurShellState extends State<ProfesseurShell> {
             icon: Icon(Icons.grade),
             label: AppStrings.saisieNotes,
           ),
+          BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'Emploi'),
           BottomNavigationBarItem(
             icon: Icon(Icons.chat),
             label: AppStrings.messages,
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: AppStrings.statistiques,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
@@ -150,7 +140,7 @@ class _AdminShellState extends State<AdminShell> {
     AdminDashboardPage(),
     UsersManagementPage(),
     ClassesManagementPage(),
-    AdminStatsPage(),
+    AdminEmploiTempsPage(),
     AdminSettingsPage(),
   ];
 
@@ -175,59 +165,12 @@ class _AdminShellState extends State<AdminShell> {
             label: AppStrings.classes,
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: AppStrings.statistiques,
+            icon: Icon(Icons.calendar_month),
+            label: 'Emploi',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Paramètres',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Shell Vie Scolaire
-class VieScolaireShell extends StatefulWidget {
-  const VieScolaireShell({super.key});
-
-  @override
-  State<VieScolaireShell> createState() => _VieScolaireShellState();
-}
-
-class _VieScolaireShellState extends State<VieScolaireShell> {
-  int _currentIndex = 0;
-
-  final _pages = const <Widget>[
-    VsDashboardPage(),
-    VsAbsencesPage(),
-    VsRetardsPage(),
-    VsEventsPage(),
-    VsProfilePage(),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: AppStrings.dashboard,
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_off),
-            label: 'Absences',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.timer), label: 'Retards'),
-          BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Événements'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: AppStrings.profil,
           ),
         ],
       ),

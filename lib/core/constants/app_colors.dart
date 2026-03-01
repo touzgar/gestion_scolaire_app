@@ -40,9 +40,7 @@ class AppColors {
   // Rôles
   static const Color roleEleve = Color(0xFF3498DB);
   static const Color roleProfesseur = Color(0xFF27AE60);
-  static const Color roleParent = Color(0xFF9B59B6);
   static const Color roleAdmin = Color(0xFFE74C3C);
-  static const Color roleVieScolaire = Color(0xFFF39C12);
 
   static Color getNoteColor(double note) {
     if (note >= 16) return noteExcellent;

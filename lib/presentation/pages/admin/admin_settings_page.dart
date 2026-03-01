@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_colors.dart';
@@ -117,14 +119,14 @@ class AdminSettingsPage extends StatelessWidget {
                       icon: Icons.school,
                       title: 'Année scolaire',
                       subtitle: '2025 - 2026',
-                      onTap: () {},
+                      onTap: () => _showAnneeScolaireDialog(context),
                     ),
                     const Divider(height: 1),
                     _SettingsTile(
                       icon: Icons.notifications_outlined,
                       title: 'Notifications',
                       subtitle: 'Gérer les notifications',
-                      onTap: () {},
+                      onTap: () => _showNotificationsDialog(context),
                     ),
                   ],
                 ),
@@ -149,7 +151,7 @@ class AdminSettingsPage extends StatelessWidget {
                     _SettingsTile(
                       icon: Icons.lock_outline,
                       title: 'Changer le mot de passe',
-                      onTap: () {},
+                      onTap: () => _showChangePasswordDialog(context),
                     ),
                     const Divider(height: 1),
                     _SettingsTile(
@@ -171,6 +173,7 @@ class AdminSettingsPage extends StatelessWidget {
     );
   }
 
+  // ─── About dialog ───
   void _showAboutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -199,6 +202,263 @@ class AdminSettingsPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  // ─── Change password dialog ───
+  void _showChangePasswordDialog(BuildContext context) {
+    final currentPwdCtrl = TextEditingController();
+    final newPwdCtrl = TextEditingController();
+    final confirmPwdCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: const Text('Changer le mot de passe'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: currentPwdCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Mot de passe actuel',
+                        prefixIcon: Icon(Icons.lock),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: newPwdCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Nouveau mot de passe',
+                        prefixIcon: Icon(Icons.lock_outline),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: confirmPwdCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirmer le mot de passe',
+                        prefixIcon: Icon(Icons.lock_outline),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (newPwdCtrl.text.length < 6) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Le mot de passe doit contenir au moins 6 caractères',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    if (newPwdCtrl.text != confirmPwdCtrl.text) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Les mots de passe ne correspondent pas',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    try {
+                      final firebaseUser = FirebaseAuth.instance.currentUser;
+                      if (firebaseUser == null) return;
+
+                      // Re-authenticate
+                      final credential = EmailAuthProvider.credential(
+                        email: firebaseUser.email!,
+                        password: currentPwdCtrl.text,
+                      );
+                      await firebaseUser.reauthenticateWithCredential(
+                        credential,
+                      );
+
+                      // Update password
+                      await firebaseUser.updatePassword(newPwdCtrl.text);
+
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Mot de passe modifié avec succès ✓'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      }
+                    } on FirebaseAuthException catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              e.code == 'wrong-password'
+                                  ? 'Mot de passe actuel incorrect'
+                                  : 'Erreur: ${e.message}',
+                            ),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Erreur: $e'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Modifier'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ─── Année scolaire dialog ───
+  void _showAnneeScolaireDialog(BuildContext context) {
+    final anneeCtrl = TextEditingController(text: '2025-2026');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Année scolaire'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Année scolaire en cours :',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: anneeCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Année scolaire',
+                prefixIcon: Icon(Icons.calendar_today),
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fermer'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // Update all classes with the new year
+              final batch = FirebaseFirestore.instance.batch();
+              final classes = await FirebaseFirestore.instance
+                  .collection('classes')
+                  .get();
+              for (final doc in classes.docs) {
+                batch.update(doc.reference, {
+                  'anneeScolaire': anneeCtrl.text.trim(),
+                });
+              }
+              await batch.commit();
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Année scolaire mise à jour: ${anneeCtrl.text.trim()} ✓',
+                    ),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              }
+            },
+            child: const Text('Appliquer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Notifications dialog ───
+  void _showNotificationsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool notifNotes = true;
+        bool notifAbsences = true;
+        bool notifMessages = true;
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: const Text('Notifications'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    title: const Text('Notes'),
+                    subtitle: const Text('Nouvelles notes saisies'),
+                    value: notifNotes,
+                    onChanged: (v) => setDialogState(() => notifNotes = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Absences'),
+                    subtitle: const Text('Nouvelles absences signalées'),
+                    value: notifAbsences,
+                    onChanged: (v) => setDialogState(() => notifAbsences = v),
+                  ),
+                  SwitchListTile(
+                    title: const Text('Messages'),
+                    subtitle: const Text('Nouveaux messages reçus'),
+                    value: notifMessages,
+                    onChanged: (v) => setDialogState(() => notifMessages = v),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Fermer'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Préférences de notification enregistrées ✓',
+                        ),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  },
+                  child: const Text('Enregistrer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

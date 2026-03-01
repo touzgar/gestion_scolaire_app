@@ -205,12 +205,8 @@ class AdminDashboardPage extends StatelessWidget {
         return AppColors.roleEleve;
       case 'professeur':
         return AppColors.roleProfesseur;
-      case 'parent':
-        return AppColors.roleParent;
       case 'admin':
         return AppColors.roleAdmin;
-      case 'vie_scolaire':
-        return AppColors.roleVieScolaire;
       default:
         return AppColors.textSecondary;
     }
@@ -222,12 +218,8 @@ class AdminDashboardPage extends StatelessWidget {
         return 'Élève';
       case 'professeur':
         return 'Professeur';
-      case 'parent':
-        return 'Parent';
       case 'admin':
         return 'Admin';
-      case 'vie_scolaire':
-        return 'Vie Scolaire';
       default:
         return role;
     }

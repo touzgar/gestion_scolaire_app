@@ -69,14 +69,11 @@ class MyApp extends StatelessWidget {
   Widget _buildShellForRole(UserRole role) {
     switch (role) {
       case UserRole.eleve:
-      case UserRole.parent:
         return const EleveShell();
       case UserRole.professeur:
         return const ProfesseurShell();
       case UserRole.admin:
         return const AdminShell();
-      case UserRole.vieScolaire:
-        return const VieScolaireShell();
     }
   }
 }

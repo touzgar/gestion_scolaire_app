@@ -52,7 +52,7 @@ class ProfClassesPage extends StatelessWidget {
                 AppColors.roleEleve,
                 AppColors.accentOrange,
                 AppColors.roleProfesseur,
-                AppColors.roleParent,
+                AppColors.roleAdmin,
               ];
               final color = colors[index % colors.length];
 

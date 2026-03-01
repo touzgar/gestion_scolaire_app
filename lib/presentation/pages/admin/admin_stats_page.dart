@@ -88,22 +88,10 @@ class AdminStatsPage extends StatelessWidget {
             Icons.cast_for_education,
           ),
           _RoleData(
-            'Parents',
-            counts['parent'] ?? 0,
-            AppColors.roleParent,
-            Icons.family_restroom,
-          ),
-          _RoleData(
             'Admins',
             counts['admin'] ?? 0,
             AppColors.roleAdmin,
             Icons.admin_panel_settings,
-          ),
-          _RoleData(
-            'Vie Scolaire',
-            counts['vie_scolaire'] ?? 0,
-            AppColors.roleVieScolaire,
-            Icons.event_available,
           ),
         ];
 

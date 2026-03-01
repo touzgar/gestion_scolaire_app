@@ -29,9 +29,7 @@ class AppStrings {
   // Rôles
   static const String roleEleve = 'Élève';
   static const String roleProfesseur = 'Professeur';
-  static const String roleParent = 'Parent';
   static const String roleAdmin = 'Administration';
-  static const String roleVieScolaire = 'Vie Scolaire';
 
   // Navigation - Élève/Parent
   static const String dashboard = 'Tableau de bord';

@@ -64,10 +64,22 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
             );
           }
-          if (state is AuthAuthenticated) {
-            // Retourner à l'écran précédent — le BlocBuilder dans main.dart
-            // va automatiquement naviguer vers le bon shell
-            Navigator.of(context).popUntil((route) => route.isFirst);
+          if (state is AuthSignUpSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(state.message)),
+                  ],
+                ),
+                backgroundColor: AppColors.success,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            // Go back to login page
+            Navigator.of(context).pop();
           }
         },
         child: SafeArea(
@@ -83,15 +95,28 @@ class _SignUpPageState extends State<SignUpPage> {
 
                     // ─── Header ───
                     Container(
-                      width: 80,
-                      height: 80,
+                      width: 90,
+                      height: 90,
                       decoration: BoxDecoration(
-                        color: AppColors.accentOrange,
-                        borderRadius: BorderRadius.circular(20),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [AppColors.accentOrange, Color(0xFFF39C12)],
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accentOrange.withValues(
+                              alpha: 0.3,
+                            ),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                       child: const Icon(
                         Icons.person_add_rounded,
-                        size: 44,
+                        size: 48,
                         color: Colors.white,
                       ),
                     ),
@@ -105,9 +130,23 @@ class _SignUpPageState extends State<SignUpPage> {
                           ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
-                      'Rejoignez DEVMOB-EduLycee',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryNavy.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Rejoignez DEVMOB-EduLycee 🚀',
+                        style: TextStyle(
+                          color: AppColors.primaryNavy,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 32),
 
@@ -244,27 +283,11 @@ class _SignUpPageState extends State<SignUpPage> {
                               ),
                             ),
                             DropdownMenuItem(
-                              value: UserRole.parent,
-                              child: _RoleDropdownItem(
-                                icon: Icons.family_restroom,
-                                label: 'Parent',
-                                color: AppColors.roleParent,
-                              ),
-                            ),
-                            DropdownMenuItem(
                               value: UserRole.admin,
                               child: _RoleDropdownItem(
                                 icon: Icons.admin_panel_settings,
                                 label: 'Administration',
                                 color: AppColors.roleAdmin,
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: UserRole.vieScolaire,
-                              child: _RoleDropdownItem(
-                                icon: Icons.event_available,
-                                label: 'Vie Scolaire',
-                                color: AppColors.roleVieScolaire,
                               ),
                             ),
                           ],
@@ -278,58 +301,118 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                     const SizedBox(height: 28),
 
-                    // ─── Bouton Inscription ───
+                    // ─── Bouton Inscription avec gradient ───
                     BlocBuilder<AuthBloc, AuthState>(
                       builder: (context, state) {
                         return SizedBox(
                           width: double.infinity,
                           height: 56,
-                          child: ElevatedButton(
-                            onPressed: state is AuthLoading ? null : _onSignUp,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.accentOrange,
-                            ),
-                            child: state is AuthLoading
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Créer mon compte',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  AppColors.accentOrange,
+                                  Color(0xFFF39C12),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.accentOrange.withValues(
+                                    alpha: 0.3,
                                   ),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed: state is AuthLoading
+                                  ? null
+                                  : _onSignUp,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: state is AuthLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.check_circle, size: 20),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Créer mon compte',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
                           ),
                         );
                       },
                     ),
                     const SizedBox(height: 20),
 
-                    // ─── Lien vers Login ───
+                    // ─── Divider ───
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          'Déjà un compte ? ',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text(
-                            'Se connecter',
+                        Expanded(child: Divider(color: Colors.grey.shade300)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'OU',
                             style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryNavy,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12,
                             ),
                           ),
                         ),
+                        Expanded(child: Divider(color: Colors.grey.shade300)),
                       ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ─── Lien vers Login ───
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.login, size: 20),
+                        label: const Text(
+                          'Déjà un compte ? Se connecter',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primaryNavy,
+                          side: const BorderSide(
+                            color: AppColors.primaryNavy,
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                   ],

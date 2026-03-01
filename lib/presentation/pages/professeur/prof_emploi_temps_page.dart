@@ -5,14 +5,15 @@ import '../../../core/constants/app_colors.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/auth/auth_state.dart';
 
-class EleveEmploiDuTempsPage extends StatefulWidget {
-  const EleveEmploiDuTempsPage({super.key});
+/// Page emploi du temps du professeur
+class ProfEmploiTempsPage extends StatefulWidget {
+  const ProfEmploiTempsPage({super.key});
 
   @override
-  State<EleveEmploiDuTempsPage> createState() => _EleveEmploiDuTempsPageState();
+  State<ProfEmploiTempsPage> createState() => _ProfEmploiTempsPageState();
 }
 
-class _EleveEmploiDuTempsPageState extends State<EleveEmploiDuTempsPage>
+class _ProfEmploiTempsPageState extends State<ProfEmploiTempsPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -25,9 +26,6 @@ class _EleveEmploiDuTempsPageState extends State<EleveEmploiDuTempsPage>
     'samedi',
   ];
 
-  String? _classeId;
-  bool _loadingClasse = true;
-
   @override
   void initState() {
     super.initState();
@@ -38,32 +36,6 @@ class _EleveEmploiDuTempsPageState extends State<EleveEmploiDuTempsPage>
       vsync: this,
       initialIndex: initialIndex,
     );
-    _findStudentClass();
-  }
-
-  Future<void> _findStudentClass() async {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is! AuthAuthenticated) {
-      setState(() => _loadingClasse = false);
-      return;
-    }
-    final uid = authState.user.uid;
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('classes')
-          .where('eleveIds', arrayContains: uid)
-          .get();
-      if (snap.docs.isNotEmpty) {
-        setState(() {
-          _classeId = snap.docs.first.id;
-          _loadingClasse = false;
-        });
-      } else {
-        setState(() => _loadingClasse = false);
-      }
-    } catch (_) {
-      setState(() => _loadingClasse = false);
-    }
   }
 
   @override
@@ -76,7 +48,7 @@ class _EleveEmploiDuTempsPageState extends State<EleveEmploiDuTempsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Emploi du temps'),
+        title: const Text('Mon Emploi du Temps'),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -86,48 +58,28 @@ class _EleveEmploiDuTempsPageState extends State<EleveEmploiDuTempsPage>
           tabs: _jours.map((j) => Tab(text: j)).toList(),
         ),
       ),
-      body: _loadingClasse
-          ? const Center(child: CircularProgressIndicator())
-          : _classeId == null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.school, size: 64, color: Colors.grey.shade300),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Vous n\'êtes inscrit dans aucune classe',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Contactez votre administration',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: _joursKeys
-                  .map((jour) => _buildDaySchedule(jour))
-                  .toList(),
-            ),
+      body: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          if (state is! AuthAuthenticated) return const SizedBox.shrink();
+          final profId = state.user.uid;
+
+          return TabBarView(
+            controller: _tabController,
+            children: _joursKeys
+                .map((jour) => _buildDaySchedule(jour, profId))
+                .toList(),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildDaySchedule(String jour) {
+  Widget _buildDaySchedule(String jour, String profId) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('emploi_du_temps')
           .where('jour', isEqualTo: jour)
-          .where('classeId', isEqualTo: _classeId)
+          .where('professeurId', isEqualTo: profId)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -171,9 +123,9 @@ class _EleveEmploiDuTempsPageState extends State<EleveEmploiDuTempsPage>
             final data = docs[index].data() as Map<String, dynamic>;
             final heureDebut = data['heureDebut'] ?? '';
             final heureFin = data['heureFin'] ?? '';
-            final salle = data['salle'] ?? '';
             final matiere = data['matiere'] ?? data['matiereId'] ?? '';
-            final profName = data['professeurName'] ?? '';
+            final className = data['className'] ?? '';
+            final salle = data['salle'] ?? '';
             final estAnnule = data['estAnnule'] ?? false;
 
             final colors = [
@@ -191,6 +143,7 @@ class _EleveEmploiDuTempsPageState extends State<EleveEmploiDuTempsPage>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Time column
                   SizedBox(
                     width: 55,
                     child: Column(
@@ -214,6 +167,7 @@ class _EleveEmploiDuTempsPageState extends State<EleveEmploiDuTempsPage>
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // Color bar
                   Container(
                     width: 4,
                     height: 80,
@@ -223,6 +177,7 @@ class _EleveEmploiDuTempsPageState extends State<EleveEmploiDuTempsPage>
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // Content
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.all(14),
@@ -278,18 +233,18 @@ class _EleveEmploiDuTempsPageState extends State<EleveEmploiDuTempsPage>
                                 ),
                             ],
                           ),
-                          if (profName.isNotEmpty) ...[
+                          if (className.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             Row(
                               children: [
                                 const Icon(
-                                  Icons.person,
+                                  Icons.class_,
                                   size: 14,
                                   color: AppColors.textSecondary,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  profName,
+                                  className,
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: AppColors.textSecondary,

@@ -15,13 +15,6 @@ class AppRoutes {
   static const String eleveProfil = '/eleve/profil';
   static const String eleveCarnet = '/eleve/carnet';
 
-  // Parent
-  static const String parentDashboard = '/parent/dashboard';
-  static const String parentNotes = '/parent/notes';
-  static const String parentAbsences = '/parent/absences';
-  static const String parentMessages = '/parent/messages';
-  static const String parentProfil = '/parent/profil';
-
   // Professeur
   static const String professeurDashboard = '/professeur/dashboard';
   static const String professeurClasses = '/professeur/classes';
@@ -39,11 +32,4 @@ class AppRoutes {
   static const String adminStatistiques = '/admin/statistiques';
   static const String adminPeriodes = '/admin/periodes';
   static const String adminParametres = '/admin/parametres';
-
-  // Vie Scolaire
-  static const String vieScolaireDashboard = '/vie-scolaire/dashboard';
-  static const String vieScolaireAbsences = '/vie-scolaire/absences';
-  static const String vieScolaireRetards = '/vie-scolaire/retards';
-  static const String vieScolaireSanctions = '/vie-scolaire/sanctions';
-  static const String vieScolaireEvenements = '/vie-scolaire/evenements';
 }

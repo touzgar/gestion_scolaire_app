@@ -137,12 +137,8 @@ class EleveProfilePage extends StatelessWidget {
         return AppColors.roleEleve;
       case 'professeur':
         return AppColors.roleProfesseur;
-      case 'parent':
-        return AppColors.roleParent;
       case 'admin':
         return AppColors.roleAdmin;
-      case 'vie_scolaire':
-        return AppColors.roleVieScolaire;
       default:
         return AppColors.textSecondary;
     }

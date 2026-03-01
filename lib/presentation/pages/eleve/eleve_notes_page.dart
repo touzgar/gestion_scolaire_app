@@ -76,11 +76,18 @@ class _EleveNotesPageState extends State<EleveNotesPage> {
                       .collection('notes')
                       .where('eleveId', isEqualTo: uid)
                       .where('trimestre', isEqualTo: _selectedTrimestre)
-                      .orderBy('date', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Erreur: ${snapshot.error}',
+                          style: const TextStyle(color: AppColors.error),
+                        ),
+                      );
                     }
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return Center(
@@ -118,6 +125,19 @@ class _EleveNotesPageState extends State<EleveNotesPage> {
                         ? totalWeighted / totalCoeff
                         : 0.0;
                     final moyenneColor = AppColors.getNoteColor(moyenne);
+
+                    // Sort by date descending in Dart (avoids composite index)
+                    final sortedDocs = snapshot.data!.docs.toList()
+                      ..sort((a, b) {
+                        final aDate =
+                            (a.data() as Map<String, dynamic>)['date']
+                                as Timestamp?;
+                        final bDate =
+                            (b.data() as Map<String, dynamic>)['date']
+                                as Timestamp?;
+                        if (aDate == null || bDate == null) return 0;
+                        return bDate.compareTo(aDate);
+                      });
 
                     return Column(
                       children: [
@@ -162,10 +182,10 @@ class _EleveNotesPageState extends State<EleveNotesPage> {
                         Expanded(
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: snapshot.data!.docs.length,
+                            itemCount: sortedDocs.length,
                             itemBuilder: (context, index) {
                               final data =
-                                  snapshot.data!.docs[index].data()
+                                  sortedDocs[index].data()
                                       as Map<String, dynamic>;
                               final valeur =
                                   (data['valeur'] as num?)?.toDouble() ?? 0;
