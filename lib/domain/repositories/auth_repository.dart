@@ -6,9 +6,6 @@ abstract class AuthRepository {
   /// Connexion avec email et mot de passe
   Future<AppUser> signInWithEmailAndPassword(String email, String password);
 
-  /// Connexion avec Google
-  Future<AppUser> signInWithGoogle();
-
   /// Déconnexion
   Future<void> signOut();
 

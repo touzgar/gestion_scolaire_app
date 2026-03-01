@@ -22,9 +22,7 @@ class AppStrings {
   static const String selectRole = 'Sélectionnez votre rôle';
   static const String alreadyHaveAccount = 'Déjà un compte ?';
   static const String noAccount = 'Pas encore de compte ?';
-  static const String continueWithGoogle = 'Continuer avec Google';
-  static const String signUpWithGoogle = 'S\'inscrire avec Google';
-  static const String orByEmail = 'ou par e-mail';
+
   static const String passwordsDoNotMatch =
       'Les mots de passe ne correspondent pas';
 

@@ -51,10 +51,6 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  void _onGoogleSignIn() {
-    context.read<AuthBloc>().add(AuthGoogleSignInRequested());
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -114,56 +110,6 @@ class _SignUpPageState extends State<SignUpPage> {
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 32),
-
-                    // ─── Google Sign-In Button ───
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: _onGoogleSignIn,
-                        icon: Image.network(
-                          'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                          height: 22,
-                          width: 22,
-                          errorBuilder: (context, error, stack) => const Icon(
-                            Icons.g_mobiledata,
-                            size: 28,
-                            color: Colors.red,
-                          ),
-                        ),
-                        label: const Text(
-                          'S\'inscrire avec Google',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textPrimary,
-                          side: BorderSide(color: Colors.grey.shade300),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ─── Divider ───
-                    Row(
-                      children: [
-                        Expanded(child: Divider(color: Colors.grey.shade300)),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'ou par e-mail',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        Expanded(child: Divider(color: Colors.grey.shade300)),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
 
                     // ─── Nom & Prénom ───
                     Row(

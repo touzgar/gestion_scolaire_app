@@ -42,9 +42,6 @@ class AuthSignUpRequested extends AuthEvent {
   List<Object?> get props => [email, password, nom, prenom, role];
 }
 
-/// Connexion avec Google
-class AuthGoogleSignInRequested extends AuthEvent {}
-
 /// Déconnexion
 class AuthLogoutRequested extends AuthEvent {}
 

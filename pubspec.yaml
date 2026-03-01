@@ -74,7 +74,6 @@ dependencies:
   # PDF
   pdf: ^3.11.1
   printing: ^5.14.1
-  google_sign_in: 6.2.2
   mailer: ^7.1.0
 
 dev_dependencies:

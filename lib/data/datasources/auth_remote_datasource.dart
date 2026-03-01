@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/errors/exceptions.dart';
 import '../../core/services/email_service.dart';
 import '../models/app_user_model.dart';
@@ -10,15 +9,12 @@ import '../../domain/entities/user_role.dart';
 class AuthRemoteDataSource {
   final FirebaseAuth _firebaseAuth;
   final FirebaseFirestore _firestore;
-  final GoogleSignIn _googleSignIn;
 
   AuthRemoteDataSource({
     FirebaseAuth? firebaseAuth,
     FirebaseFirestore? firestore,
-    GoogleSignIn? googleSignIn,
   }) : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-       _firestore = firestore ?? FirebaseFirestore.instance,
-       _googleSignIn = googleSignIn ?? GoogleSignIn();
+       _firestore = firestore ?? FirebaseFirestore.instance;
 
   /// Connexion
   Future<AppUserModel> signInWithEmailAndPassword(
@@ -41,7 +37,6 @@ class AuthRemoteDataSource {
 
   /// Déconnexion
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
     await _firebaseAuth.signOut();
   }
 
@@ -108,80 +103,6 @@ class AuthRemoteDataSource {
       return userModel;
     } on FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e.code));
-    }
-  }
-
-  /// Connexion avec Google
-  Future<AppUserModel> signInWithGoogle() async {
-    try {
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        throw const AuthException('Connexion Google annulée');
-      }
-
-      final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final userCredential = await _firebaseAuth.signInWithCredential(
-        credential,
-      );
-      final user = userCredential.user;
-      if (user == null) {
-        throw const AuthException('Connexion Google échouée');
-      }
-
-      // Vérifier si l'utilisateur existe déjà dans Firestore
-      final doc = await _firestore
-          .collection('utilisateurs')
-          .doc(user.uid)
-          .get();
-
-      if (doc.exists) {
-        // Utilisateur existant : notifier par e-mail
-        final existingUser = AppUserModel.fromFirestore(doc);
-        EmailService.sendGoogleSignInNotification(
-          toEmail: user.email!,
-          userName: existingUser.nomComplet,
-        );
-        return existingUser;
-      } else {
-        // Nouvel utilisateur Google — créer le profil dans Firestore
-        final nameParts = (user.displayName ?? '').split(' ');
-        final prenom = nameParts.isNotEmpty ? nameParts.first : '';
-        final nom = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
-
-        final newUser = AppUserModel(
-          uid: user.uid,
-          nom: nom,
-          prenom: prenom,
-          email: user.email ?? '',
-          photoUrl: user.photoURL,
-          role: UserRole.eleve, // Rôle par défaut pour Google Sign-In
-          dateCreation: DateTime.now(),
-        );
-
-        await _firestore
-            .collection('utilisateurs')
-            .doc(user.uid)
-            .set(newUser.toFirestore());
-
-        // Envoyer e-mail de bienvenue
-        EmailService.sendWelcomeEmail(
-          toEmail: user.email!,
-          userName: '$prenom $nom',
-          role: UserRole.eleve.displayName,
-        );
-
-        return newUser;
-      }
-    } on FirebaseAuthException catch (e) {
-      throw AuthException(_mapFirebaseAuthError(e.code));
-    } catch (e) {
-      if (e is AuthException) rethrow;
-      throw AuthException('Erreur Google Sign-In: $e');
     }
   }
 
