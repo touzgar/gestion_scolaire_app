@@ -82,7 +82,7 @@ class AdminDashboardPage extends StatelessWidget {
             }
 
             return GridView.count(
-              crossAxisCount: 2,
+              crossAxisCount: 4,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: 12,

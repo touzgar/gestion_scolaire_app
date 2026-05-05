@@ -29,9 +29,22 @@ class AuthRemoteDataSource {
       if (credential.user == null) {
         throw const AuthException('Connexion échouée');
       }
-      return await _getUserData(credential.user!.uid);
+      try {
+        return await _getUserData(credential.user!.uid);
+      } catch (e) {
+        // If getting user data fails (e.g., NotFoundException from a broken signup)
+        await _firebaseAuth.signOut();
+        if (e is AuthException) rethrow;
+        throw const AuthException(
+          'Erreur: Compte incomplet ou données introuvables. Veuillez vous réinscrire.',
+        );
+      }
+    } on AuthException {
+      rethrow;
     } on FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e.code));
+    } catch (e) {
+      throw AuthException('Erreur de connexion: $e');
     }
   }
 
@@ -44,14 +57,26 @@ class AuthRemoteDataSource {
   Future<AppUserModel?> getCurrentUser() async {
     final user = _firebaseAuth.currentUser;
     if (user == null) return null;
-    return await _getUserData(user.uid);
+    try {
+      return await _getUserData(user.uid);
+    } catch (e) {
+      // If Firestore read fails, return null instead of crashing
+      // This prevents infinite loops on auth state check
+      return null;
+    }
   }
 
   /// Stream état auth
   Stream<AppUserModel?> get authStateChanges {
     return _firebaseAuth.authStateChanges().asyncMap((user) async {
       if (user == null) return null;
-      return await _getUserData(user.uid);
+      try {
+        return await _getUserData(user.uid);
+      } catch (e) {
+        // If Firestore read fails, return null instead of throwing
+        // This prevents the infinite reload loop
+        return null;
+      }
     });
   }
 
@@ -88,21 +113,44 @@ class AuthRemoteDataSource {
         dateCreation: DateTime.now(),
       );
 
-      await _firestore
-          .collection('utilisateurs')
-          .doc(uid)
-          .set(userModel.toFirestore());
+      try {
+        await _firestore
+            .collection('utilisateurs')
+            .doc(uid)
+            .set(userModel.toFirestore());
+      } catch (e) {
+        // En cas d'échec Firestore, supprimer l'utilisateur d'authentification pour éviter les comptes orphelins.
+        try {
+          await credential.user?.delete();
+        } catch (_) {
+          // If deletion fails too, sign out at least
+          await _firebaseAuth.signOut();
+        }
+        throw AuthException(
+          'Erreur Firestore: impossible de sauvegarder les données. '
+          'Vérifiez les règles de sécurité Firestore. ($e)',
+        );
+      }
 
-      // Envoyer l'e-mail de bienvenue via SMTP
-      EmailService.sendWelcomeEmail(
-        toEmail: email,
-        userName: '$prenom $nom',
-        role: role.displayName,
-      );
+      // Envoyer l'e-mail de bienvenue via SMTP, non bloquant
+      try {
+        await EmailService.sendWelcomeEmail(
+          toEmail: email,
+          userName: '$prenom $nom',
+          role: role.displayName,
+        );
+      } catch (e) {
+        // Optionnel : on peut ignorer l'erreur d'email
+      }
 
       return userModel;
+    } on AuthException {
+      // Don't re-wrap AuthException (e.g. from Firestore failure above)
+      rethrow;
     } on FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e.code));
+    } catch (e) {
+      throw AuthException('Erreur lors de l\'inscription: $e');
     }
   }
 
@@ -139,8 +187,10 @@ class AuthRemoteDataSource {
         return 'Ce compte a été désactivé';
       case 'too-many-requests':
         return 'Trop de tentatives. Réessayez plus tard';
+      case 'invalid-credential':
+        return 'E-mail ou mot de passe incorrect';
       default:
-        return 'Erreur d\'authentification';
+        return 'Erreur d\'authentification ($code)';
     }
   }
 }

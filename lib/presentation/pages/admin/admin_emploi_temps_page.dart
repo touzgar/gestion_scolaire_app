@@ -12,6 +12,7 @@ class AdminEmploiTempsPage extends StatefulWidget {
 
 class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
     with SingleTickerProviderStateMixin {
+  bool _showCalendarView = true;
   late TabController _tabController;
   final _jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   final _joursKeys = [
@@ -50,16 +51,19 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
       appBar: AppBar(
         title: const Text('Emploi du Temps'),
         actions: [
-          if (_selectedClasseId != null)
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              child: IconButton(
-                icon: const Icon(Icons.info_outline),
-                onPressed: () => _showInfoDialog(),
-              ),
+          if (_selectedClasseId != null) ...[
+            IconButton(
+              icon: Icon(_showCalendarView ? Icons.view_list : Icons.calendar_view_week),
+              tooltip: _showCalendarView ? 'Vue liste' : 'Vue calendrier',
+              onPressed: () => setState(() => _showCalendarView = !_showCalendarView),
             ),
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              onPressed: () => _showInfoDialog(),
+            ),
+          ],
         ],
-        bottom: _selectedClasseId != null
+        bottom: (_selectedClasseId != null && !_showCalendarView)
             ? TabBar(
                 controller: _tabController,
                 isScrollable: true,
@@ -184,6 +188,8 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                 ),
               ),
             )
+          else if (_showCalendarView)
+            Expanded(child: _buildWeeklyCalendar())
           else
             Expanded(
               child: TabBarView(
@@ -195,6 +201,190 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
             ),
         ],
       ),
+    );
+  }
+
+  // ─── Weekly Calendar Grid View ───
+  Widget _buildWeeklyCalendar() {
+    final timeSlots = List.generate(11, (i) => '${(8 + i).toString().padLeft(2, '0')}:00');
+    final colors = [
+      AppColors.roleEleve, AppColors.roleProfesseur, AppColors.accentOrange,
+      AppColors.roleAdmin, AppColors.info, AppColors.success,
+    ];
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('emploi_du_temps')
+          .where('classeId', isEqualTo: _selectedClasseId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final docs = snapshot.data?.docs ?? [];
+        // Group by day
+        final Map<String, List<QueryDocumentSnapshot>> byDay = {};
+        for (final key in _joursKeys) {
+          byDay[key] = [];
+        }
+        for (final doc in docs) {
+          final d = doc.data() as Map<String, dynamic>;
+          final jour = d['jour'] ?? '';
+          byDay.putIfAbsent(jour, () => []).add(doc);
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 80),
+          child: Column(
+            children: [
+              // Header row with day names
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 48), // time column
+                    ...List.generate(_jours.length, (i) {
+                      final isToday = DateTime.now().weekday == i + 1;
+                      return Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: isToday
+                                ? AppColors.accentOrange.withValues(alpha: 0.15)
+                                : AppColors.primaryNavy.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            _jours[i].substring(0, 3),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              color: isToday ? AppColors.accentOrange : AppColors.primaryNavy,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              // Grid body
+              ...timeSlots.map((time) {
+                final hour = int.parse(time.split(':')[0]);
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Time label
+                        SizedBox(
+                          width: 48,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              time,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Day cells
+                        ...List.generate(_joursKeys.length, (dayIdx) {
+                          final dayCourses = byDay[_joursKeys[dayIdx]] ?? [];
+                          final coursesAtTime = dayCourses.where((doc) {
+                            final d = doc.data() as Map<String, dynamic>;
+                            final startH = int.tryParse((d['heureDebut'] ?? '').split(':')[0]) ?? 0;
+                            return startH == hour;
+                          }).toList();
+
+                          return Expanded(
+                            child: Container(
+                              margin: const EdgeInsets.all(1),
+                              constraints: const BoxConstraints(minHeight: 52),
+                              decoration: BoxDecoration(
+                                color: coursesAtTime.isEmpty
+                                    ? Colors.grey.withValues(alpha: 0.04)
+                                    : null,
+                                border: Border.all(
+                                  color: Colors.grey.withValues(alpha: 0.12),
+                                  width: 0.5,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: coursesAtTime.isEmpty
+                                  ? const SizedBox.shrink()
+                                  : Column(
+                                      children: coursesAtTime.map((doc) {
+                                        final d = doc.data() as Map<String, dynamic>;
+                                        final matiere = d['matiere'] ?? d['matiereId'] ?? '';
+                                        final salle = d['salle'] ?? '';
+                                        final estAnnule = d['estAnnule'] ?? false;
+                                        final cIdx = docs.indexOf(doc);
+                                        final color = colors[cIdx % colors.length];
+
+                                        return GestureDetector(
+                                          onTap: () => _showEditCreneauDialog(doc.id, d),
+                                          child: Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                                colors: estAnnule
+                                                    ? [Colors.grey.shade300, Colors.grey.shade200]
+                                                    : [color, color.withValues(alpha: 0.7)],
+                                              ),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  matiere,
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Colors.white,
+                                                    decoration: estAnnule ? TextDecoration.lineThrough : null,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                if (salle.isNotEmpty)
+                                                  Text(
+                                                    salle,
+                                                    style: const TextStyle(
+                                                      fontSize: 9,
+                                                      color: Colors.white70,
+                                                    ),
+                                                    maxLines: 1,
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -453,13 +643,38 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                     ),
                     const SizedBox(height: 12),
 
-                    // Salle
-                    TextField(
-                      controller: salleCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Salle (optionnel)',
-                        prefixIcon: Icon(Icons.room),
-                      ),
+                    // Salle dropdown from Firestore
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('salles')
+                          .where('disponible', isEqualTo: true)
+                          .orderBy('nom')
+                          .snapshots(),
+                      builder: (context, snap) {
+                        if (!snap.hasData) return const LinearProgressIndicator();
+                        final sallesDocs = snap.data!.docs;
+                        return DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: salleCtrl.text.isNotEmpty ? salleCtrl.text : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Salle (optionnel)',
+                            prefixIcon: Icon(Icons.meeting_room),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                          items: [
+                            const DropdownMenuItem<String>(value: '', child: Text('— Aucune —')),
+                            ...sallesDocs.map((doc) {
+                              final d = doc.data() as Map<String, dynamic>;
+                              return DropdownMenuItem<String>(
+                                value: d['nom'] ?? doc.id,
+                                child: Text('${d['nom']} (${d['capacite']} pl.)'),
+                              );
+                            }),
+                          ],
+                          onChanged: (v) => setDialogState(() => salleCtrl.text = v ?? ''),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -695,13 +910,40 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                     ),
                     const SizedBox(height: 12),
 
-                    // Salle
-                    TextField(
-                      controller: salleCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Salle (optionnel)',
-                        prefixIcon: Icon(Icons.room),
-                      ),
+                    // Salle dropdown from Firestore
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('salles')
+                          .where('disponible', isEqualTo: true)
+                          .orderBy('nom')
+                          .snapshots(),
+                      builder: (context, snap) {
+                        if (!snap.hasData) return const LinearProgressIndicator();
+                        final sallesDocs = snap.data!.docs;
+                        final validValues = sallesDocs.map((d) => (d.data() as Map<String, dynamic>)['nom'] ?? d.id).toSet();
+                        final currentVal = validValues.contains(salleCtrl.text) ? salleCtrl.text : null;
+                        return DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: (currentVal != null && currentVal.isNotEmpty) ? currentVal : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Salle (optionnel)',
+                            prefixIcon: Icon(Icons.meeting_room),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                          items: [
+                            const DropdownMenuItem<String>(value: '', child: Text('— Aucune —')),
+                            ...sallesDocs.map((doc) {
+                              final d = doc.data() as Map<String, dynamic>;
+                              return DropdownMenuItem<String>(
+                                value: d['nom'] ?? doc.id,
+                                child: Text('${d['nom']} (${d['capacite']} pl.)'),
+                              );
+                            }),
+                          ],
+                          onChanged: (v) => setDialogState(() => salleCtrl.text = v ?? ''),
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
 

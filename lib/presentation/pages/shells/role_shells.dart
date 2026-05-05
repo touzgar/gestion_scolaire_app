@@ -20,6 +20,7 @@ import '../admin/admin_dashboard_page.dart';
 import '../admin/users_management_page.dart';
 import '../admin/classes_management_page.dart';
 import '../admin/admin_emploi_temps_page.dart';
+import '../admin/salles_management_page.dart';
 import '../admin/admin_settings_page.dart';
 
 /// Shell Élève / Parent — Navigation par BottomNavigationBar
@@ -140,6 +141,7 @@ class _AdminShellState extends State<AdminShell> {
     AdminDashboardPage(),
     UsersManagementPage(),
     ClassesManagementPage(),
+    SallesManagementPage(),
     AdminEmploiTempsPage(),
     AdminSettingsPage(),
   ];
@@ -148,28 +150,38 @@ class _AdminShellState extends State<AdminShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: AppStrings.dashboard,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Accueil',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
+          NavigationDestination(
+            icon: Icon(Icons.people_outlined),
+            selectedIcon: Icon(Icons.people),
             label: 'Utilisateurs',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.class_),
-            label: AppStrings.classes,
+          NavigationDestination(
+            icon: Icon(Icons.class_outlined),
+            selectedIcon: Icon(Icons.class_),
+            label: 'Classes',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_month),
+          NavigationDestination(
+            icon: Icon(Icons.meeting_room_outlined),
+            selectedIcon: Icon(Icons.meeting_room),
+            label: 'Salles',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
             label: 'Emploi',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
             label: 'Paramètres',
           ),
         ],
