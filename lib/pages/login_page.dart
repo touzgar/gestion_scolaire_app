@@ -1,14 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:math' as math;
-import '../../../core/constants/app_strings.dart';
-import '../../../core/utils/validators.dart';
-import '../../blocs/auth/auth_bloc.dart';
-import '../../blocs/auth/auth_event.dart';
-import '../../blocs/auth/auth_state.dart';
-import 'sign_up_page.dart';
 
-/// Écran de connexion multi-profil avec design innovant
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -17,10 +9,11 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isPasswordVisible = false;
+  final _formKey = GlobalKey<FormState>();
+  bool _obscurePassword = true;
+  bool _isLoading = false;
   
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -65,23 +58,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _onLogin() {
-    if (_formKey.currentState!.validate()) {
-      context.read<AuthBloc>().add(
-        AuthLoginRequested(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        ),
-      );
-    }
-  }
-
-  void _navigateToSignUp() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SignUpPage()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -89,43 +65,31 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthError) {
-            _showSnackBar(state.message, isError: true);
-          }
-          if (state is AuthPasswordResetSent) {
-            _showSnackBar('E-mail de réinitialisation envoyé');
-          }
-        },
-        child: Stack(
-          children: [
-            // Animated background elements
-            _buildAnimatedBackground(),
-            
-            // Main content
-            SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isDesktop ? 48.0 : 24.0,
-                    vertical: 40.0,
-                  ),
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 440),
-                        child: _buildLoginCard(isDesktop),
-                      ),
-                    ),
+      body: Stack(
+        children: [
+          // Animated background elements
+          _buildAnimatedBackground(),
+          
+          // Main content
+          Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: isDesktop ? 48.0 : 24.0,
+                vertical: 40.0,
+              ),
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: _buildLoginCard(isDesktop),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -220,7 +184,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             const SizedBox(height: 32),
             _buildDivider(),
             const SizedBox(height: 28),
-            _buildSignUpButton(),
+            _buildSocialButtons(),
+            const SizedBox(height: 32),
+            _buildSignUpText(),
           ],
         ),
       ),
@@ -349,7 +315,15 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       hintText: 'name@example.com',
       prefixIcon: Icons.email_outlined,
       keyboardType: TextInputType.emailAddress,
-      validator: Validators.email,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your email';
+        }
+        if (!value.contains('@')) {
+          return 'Please enter a valid email';
+        }
+        return null;
+      },
     );
   }
 
@@ -370,7 +344,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             ),
             GestureDetector(
               onTap: () {
-                _showForgotPasswordDialog(context);
+                _showForgotPasswordDialog();
               },
               child: const Text(
                 'Forgot Password?',
@@ -388,87 +362,89 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           controller: _passwordController,
           hintText: '••••••••',
           prefixIcon: Icons.lock_outline_rounded,
-          obscureText: !_isPasswordVisible,
+          obscureText: _obscurePassword,
           suffixIcon: IconButton(
             icon: Icon(
-              _isPasswordVisible
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined,
+              _obscurePassword
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
               color: const Color(0xFF9CA3AF),
               size: 20,
             ),
             onPressed: () {
               setState(() {
-                _isPasswordVisible = !_isPasswordVisible;
+                _obscurePassword = !_obscurePassword;
               });
             },
           ),
-          validator: Validators.password,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please enter your password';
+            }
+            if (value.length < 6) {
+              return 'Password must be at least 6 characters';
+            }
+            return null;
+          },
         ),
       ],
     );
   }
 
   Widget _buildSignInButton() {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        final isLoading = state is AuthLoading;
-        
-        return Container(
-          width: double.infinity,
-          height: 54,
-          decoration: BoxDecoration(
+    return Container(
+      width: double.infinity,
+      height: 54,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0066FF), Color(0xFF0052CC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0066FF).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleSignIn,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF0066FF), Color(0xFF0052CC)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0066FF).withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
           ),
-          child: ElevatedButton(
-            onPressed: isLoading ? null : _onLogin,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              foregroundColor: Colors.white,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: isLoading
-                ? const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Sign In',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
                     ),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Sign In',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward_rounded, size: 20),
-                    ],
                   ),
-          ),
-        );
-      },
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward_rounded, size: 20),
+                ],
+              ),
+      ),
     );
   }
 
@@ -492,7 +468,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'OR',
+            'OR CONTINUE WITH',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -519,46 +495,79 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildSignUpButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: OutlinedButton(
-        onPressed: _navigateToSignUp,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: const Color(0xFF0066FF),
-          side: const BorderSide(
-            color: Color(0xFF0066FF),
-            width: 1.5,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+  Widget _buildSocialButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: _SocialButton(
+            icon: Icons.apple,
+            label: 'Apple',
+            onPressed: () {
+              _showSnackBar('Apple login coming soon!');
+            },
           ),
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.person_add, size: 20),
-            SizedBox(width: 8),
-            Text(
-              'Create Account',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        const SizedBox(width: 12),
+        Expanded(
+          child: _SocialButton(
+            label: 'Google',
+            isGoogle: true,
+            onPressed: () {
+              _showSnackBar('Google login coming soon!');
+            },
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  void _showForgotPasswordDialog(BuildContext context) {
-    final emailCtrl = TextEditingController();
+  Widget _buildSignUpText() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text(
+          "Don't have an account? ",
+          style: TextStyle(
+            fontSize: 14,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+        GestureDetector(
+          onTap: () {
+            _showSnackBar('Sign up page coming soon!');
+          },
+          child: const Text(
+            'Sign Up',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0066FF),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleSignIn() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      
+      // Simulate API call
+      await Future.delayed(const Duration(seconds: 2));
+      
+      setState(() => _isLoading = false);
+      
+      if (mounted) {
+        _showSnackBar('Sign in successful!', isSuccess: true);
+      }
+    }
+  }
+
+  void _showForgotPasswordDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
@@ -566,26 +575,18 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           'Reset Password',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: TextFormField(
-          controller: emailCtrl,
-          decoration: const InputDecoration(
-            labelText: AppStrings.email,
-            prefixIcon: Icon(Icons.email_outlined),
-          ),
+        content: const Text(
+          'Enter your email address and we\'ll send you a link to reset your password.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text(AppStrings.cancel),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              if (emailCtrl.text.isNotEmpty) {
-                context.read<AuthBloc>().add(
-                  AuthResetPasswordRequested(email: emailCtrl.text.trim()),
-                );
-                Navigator.pop(ctx);
-              }
+              Navigator.pop(context);
+              _showSnackBar('Password reset link sent!');
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0066FF),
@@ -597,20 +598,20 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
-  void _showSnackBar(String message, {bool isError = false}) {
+  void _showSnackBar(String message, {bool isSuccess = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Icon(
-              isError ? Icons.error : Icons.check_circle,
+              isSuccess ? Icons.check_circle : Icons.info,
               color: Colors.white,
             ),
             const SizedBox(width: 12),
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isSuccess ? Colors.green : const Color(0xFF0066FF),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -739,6 +740,103 @@ class _AnimatedTextFieldState extends State<_AnimatedTextField> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// Social Button Widget
+class _SocialButton extends StatefulWidget {
+  final IconData? icon;
+  final String label;
+  final VoidCallback onPressed;
+  final bool isGoogle;
+
+  const _SocialButton({
+    this.icon,
+    required this.label,
+    required this.onPressed,
+    this.isGoogle = false,
+  });
+
+  @override
+  State<_SocialButton> createState() => _SocialButtonState();
+}
+
+class _SocialButtonState extends State<_SocialButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 52,
+        child: OutlinedButton(
+          onPressed: widget.onPressed,
+          style: OutlinedButton.styleFrom(
+            backgroundColor: _isHovered
+                ? const Color(0xFFF9FAFB)
+                : Colors.white,
+            foregroundColor: const Color(0xFF1A1A1A),
+            side: BorderSide(
+              color: _isHovered
+                  ? const Color(0xFF0066FF).withOpacity(0.3)
+                  : const Color(0xFFE5E7EB),
+              width: _isHovered ? 1.5 : 1,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (widget.isGoogle)
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFF4285F4),
+                        Color(0xFFEA4335),
+                        Color(0xFFFBBC05),
+                        Color(0xFF34A853),
+                      ],
+                    ),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'G',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Icon(
+                  widget.icon,
+                  size: 20,
+                  color: const Color(0xFF1A1A1A),
+                ),
+              const SizedBox(width: 10),
+              Text(
+                widget.label,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
