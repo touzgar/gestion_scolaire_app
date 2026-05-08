@@ -75,6 +75,7 @@ dependencies:
   pdf: ^3.11.1
   printing: ^5.14.1
   mailer: ^7.1.0
+  csv: ^6.0.0
 
 dev_dependencies:
   flutter_test:

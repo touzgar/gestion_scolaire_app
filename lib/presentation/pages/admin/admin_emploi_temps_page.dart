@@ -1,8 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
 
-/// Page de gestion de l'emploi du temps (Admin)
+/// Page de gestion de l'emploi du temps (Admin) - Professional Design
 class AdminEmploiTempsPage extends StatefulWidget {
   const AdminEmploiTempsPage({super.key});
 
@@ -10,206 +9,336 @@ class AdminEmploiTempsPage extends StatefulWidget {
   State<AdminEmploiTempsPage> createState() => _AdminEmploiTempsPageState();
 }
 
-class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
-    with SingleTickerProviderStateMixin {
+class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage> {
   bool _showCalendarView = true;
-  late TabController _tabController;
   final _jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-  final _joursKeys = [
-    'lundi',
-    'mardi',
-    'mercredi',
-    'jeudi',
-    'vendredi',
-    'samedi',
-  ];
-
+  final _joursKeys = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  
   String? _selectedClasseId;
   String? _selectedClassName;
 
   @override
-  void initState() {
-    super.initState();
-    final today = DateTime.now().weekday;
-    final initialIndex = (today >= 1 && today <= 6) ? today - 1 : 0;
-    _tabController = TabController(
-      length: 6,
-      vsync: this,
-      initialIndex: initialIndex,
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF5F7FA),
+      child: Column(
+        children: [
+          // Dark Navy Header
+          _buildHeader(context),
+          
+          // Main Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Class Selector Card
+                  _buildClassSelectorCard(),
+                  const SizedBox(height: 24),
+                  
+                  // Schedule Content
+                  if (_selectedClasseId != null) ...[
+                    _buildScheduleContent(),
+                  ] else
+                    _buildEmptyState(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Emploi du Temps'),
-        actions: [
-          if (_selectedClasseId != null) ...[
-            IconButton(
-              icon: Icon(_showCalendarView ? Icons.view_list : Icons.calendar_view_week),
-              tooltip: _showCalendarView ? 'Vue liste' : 'Vue calendrier',
-              onPressed: () => setState(() => _showCalendarView = !_showCalendarView),
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1E3A5F),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.calendar_month, color: Colors.white, size: 24),
+          const SizedBox(width: 12),
+          const Text(
+            'Emploi du Temps',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
+          ),
+          const Spacer(),
+          if (_selectedClasseId != null) ...[
+            // View Toggle
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF2D4A6F),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  _ViewToggleButton(
+                    icon: Icons.calendar_view_week,
+                    label: 'Grid',
+                    isSelected: _showCalendarView,
+                    onTap: () => setState(() => _showCalendarView = true),
+                  ),
+                  _ViewToggleButton(
+                    icon: Icons.view_list,
+                    label: 'List',
+                    isSelected: !_showCalendarView,
+                    onTap: () => setState(() => _showCalendarView = false),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Print Button
             IconButton(
-              icon: const Icon(Icons.info_outline),
-              onPressed: () => _showInfoDialog(),
+              icon: const Icon(Icons.print, color: Colors.white),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Print functionality coming soon')),
+                );
+              },
+              tooltip: 'Print Schedule',
             ),
           ],
         ],
-        bottom: (_selectedClasseId != null && !_showCalendarView)
-            ? TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                indicatorColor: AppColors.accentOrange,
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.white60,
-                tabs: _jours.map((j) => Tab(text: j)).toList(),
-              )
-            : null,
       ),
-      floatingActionButton: _selectedClasseId != null
-          ? FloatingActionButton.extended(
-              onPressed: () => _showAddCreneauDialog(),
-              icon: const Icon(Icons.add),
-              label: const Text('Ajouter'),
-            )
-          : null,
-      body: Column(
-        children: [
-          // ─── Class selector ───
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('classes')
-                  .snapshots(),
-              builder: (context, snap) {
-                if (!snap.hasData) {
-                  return const LinearProgressIndicator();
-                }
-                final classes = snap.data!.docs.toList()
-                  ..sort((a, b) {
-                    final aN = (a.data() as Map<String, dynamic>)['nom'] ?? '';
-                    final bN = (b.data() as Map<String, dynamic>)['nom'] ?? '';
-                    return aN.toString().compareTo(bN.toString());
-                  });
+    );
+  }
 
-                if (classes.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'Aucune classe. Créez des classes d\'abord.',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  );
-                }
-
-                return DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  // ignore: deprecated_member_use
-                  value: _selectedClasseId,
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.class_),
-                    labelText: 'Sélectionner une classe',
-                    filled: true,
-                    fillColor: AppColors.surfaceVariant,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  items: classes.map((doc) {
-                    final d = doc.data() as Map<String, dynamic>;
-                    final label = '${d['nom'] ?? ''} (${d['niveau'] ?? ''})';
-                    return DropdownMenuItem<String>(
-                      value: doc.id,
-                      child: Text(label),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      final doc = classes.firstWhere((d) => d.id == val);
-                      final d = doc.data() as Map<String, dynamic>;
-                      setState(() {
-                        _selectedClasseId = val;
-                        _selectedClassName = d['nom'] ?? '';
-                      });
-                    }
-                  },
-                );
-              },
-            ),
+  Widget _buildClassSelectorCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-
-          // ─── Schedule content ───
-          if (_selectedClasseId == null)
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryNavy.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: const Icon(
-                        Icons.calendar_month,
-                        size: 44,
-                        color: AppColors.primaryNavy,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Sélectionnez une classe',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'pour gérer son emploi du temps',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else if (_showCalendarView)
-            Expanded(child: _buildWeeklyCalendar())
-          else
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: _joursKeys
-                    .map((jour) => _buildDaySchedule(jour))
-                    .toList(),
-              ),
-            ),
         ],
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B82F6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.class_, color: Color(0xFF3B82F6), size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Select Class',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('classes').snapshots(),
+            builder: (context, snap) {
+              if (!snap.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              final classes = snap.data!.docs.toList()
+                ..sort((a, b) {
+                  final aN = (a.data() as Map<String, dynamic>)['nom'] ?? '';
+                  final bN = (b.data() as Map<String, dynamic>)['nom'] ?? '';
+                  return aN.toString().compareTo(bN.toString());
+                });
+
+              if (classes.isEmpty) {
+                return const Text(
+                  'No classes available. Please create classes first.',
+                  style: TextStyle(color: Color(0xFF64748B)),
+                );
+              }
+
+              return DropdownButtonFormField<String>(
+                isExpanded: true,
+                value: _selectedClasseId,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.school, color: Color(0xFF3B82F6)),
+                  hintText: 'Choose a class to manage schedule',
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 2),
+                  ),
+                ),
+                items: classes.map((doc) {
+                  final d = doc.data() as Map<String, dynamic>;
+                  final label = '${d['nom'] ?? ''} (${d['niveau'] ?? ''})';
+                  return DropdownMenuItem<String>(
+                    value: doc.id,
+                    child: Text(label),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    final doc = classes.firstWhere((d) => d.id == val);
+                    final d = doc.data() as Map<String, dynamic>;
+                    setState(() {
+                      _selectedClasseId = val;
+                      _selectedClassName = d['nom'] ?? '';
+                    });
+                  }
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(60),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E3A5F).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(
+                Icons.calendar_month,
+                size: 50,
+                color: Color(0xFF1E3A5F),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Select a class to view schedule',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Choose a class from the dropdown above to manage its timetable',
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF64748B),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScheduleContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Schedule Header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _selectedClassName ?? '',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Weekly Schedule',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+            ElevatedButton.icon(
+              onPressed: () => _showAddCreneauDialog(),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('New Entry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6B35),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        
+        // Schedule Grid or List
+        if (_showCalendarView)
+          _buildWeeklyCalendar()
+        else
+          _buildDaysList(),
+      ],
     );
   }
 
   // ─── Weekly Calendar Grid View ───
   Widget _buildWeeklyCalendar() {
-    final timeSlots = List.generate(11, (i) => '${(8 + i).toString().padLeft(2, '0')}:00');
+    final timeSlots = List.generate(7, (i) => '${(8 + i).toString().padLeft(2, '0')}:00');
     final colors = [
-      AppColors.roleEleve, AppColors.roleProfesseur, AppColors.accentOrange,
-      AppColors.roleAdmin, AppColors.info, AppColors.success,
+      const Color(0xFF3B82F6),
+      const Color(0xFF8B5CF6),
+      const Color(0xFFFF6B35),
+      const Color(0xFF10B981),
+      const Color(0xFFF59E0B),
+      const Color(0xFFEF4444),
     ];
 
     return StreamBuilder<QuerySnapshot>(
@@ -221,7 +350,9 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        
         final docs = snapshot.data?.docs ?? [];
+        
         // Group by day
         final Map<String, List<QueryDocumentSnapshot>> byDay = {};
         for (final key in _joursKeys) {
@@ -233,35 +364,50 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
           byDay.putIfAbsent(jour, () => []).add(doc);
         }
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 80),
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
           child: Column(
             children: [
-              // Header row with day names
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+              // Day Headers
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                ),
                 child: Row(
                   children: [
-                    const SizedBox(width: 48), // time column
+                    const SizedBox(width: 60), // time column
                     ...List.generate(_jours.length, (i) {
                       final isToday = DateTime.now().weekday == i + 1;
                       return Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
                           decoration: BoxDecoration(
                             color: isToday
-                                ? AppColors.accentOrange.withValues(alpha: 0.15)
-                                : AppColors.primaryNavy.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(10),
+                                ? const Color(0xFFFF6B35).withOpacity(0.1)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            _jours[i].substring(0, 3),
+                            _jours[i],
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                              color: isToday ? AppColors.accentOrange : AppColors.primaryNavy,
+                              fontSize: 13,
+                              color: isToday ? const Color(0xFFFF6B35) : const Color(0xFF1E293B),
                             ),
                           ),
                         ),
@@ -270,117 +416,130 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                   ],
                 ),
               ),
-              const SizedBox(height: 4),
-              // Grid body
-              ...timeSlots.map((time) {
-                final hour = int.parse(time.split(':')[0]);
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Time label
-                        SizedBox(
-                          width: 48,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Text(
-                              time,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Day cells
-                        ...List.generate(_joursKeys.length, (dayIdx) {
-                          final dayCourses = byDay[_joursKeys[dayIdx]] ?? [];
-                          final coursesAtTime = dayCourses.where((doc) {
-                            final d = doc.data() as Map<String, dynamic>;
-                            final startH = int.tryParse((d['heureDebut'] ?? '').split(':')[0]) ?? 0;
-                            return startH == hour;
-                          }).toList();
-
-                          return Expanded(
-                            child: Container(
-                              margin: const EdgeInsets.all(1),
-                              constraints: const BoxConstraints(minHeight: 52),
-                              decoration: BoxDecoration(
-                                color: coursesAtTime.isEmpty
-                                    ? Colors.grey.withValues(alpha: 0.04)
-                                    : null,
-                                border: Border.all(
-                                  color: Colors.grey.withValues(alpha: 0.12),
-                                  width: 0.5,
+              
+              // Time Grid
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: timeSlots.map((time) {
+                    final hour = int.parse(time.split(':')[0]);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Time label
+                            SizedBox(
+                              width: 60,
+                              child: Text(
+                                time,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                borderRadius: BorderRadius.circular(6),
                               ),
-                              child: coursesAtTime.isEmpty
-                                  ? const SizedBox.shrink()
-                                  : Column(
-                                      children: coursesAtTime.map((doc) {
-                                        final d = doc.data() as Map<String, dynamic>;
-                                        final matiere = d['matiere'] ?? d['matiereId'] ?? '';
-                                        final salle = d['salle'] ?? '';
-                                        final estAnnule = d['estAnnule'] ?? false;
-                                        final cIdx = docs.indexOf(doc);
-                                        final color = colors[cIdx % colors.length];
-
-                                        return GestureDetector(
-                                          onTap: () => _showEditCreneauDialog(doc.id, d),
-                                          child: Container(
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: estAnnule
-                                                    ? [Colors.grey.shade300, Colors.grey.shade200]
-                                                    : [color, color.withValues(alpha: 0.7)],
-                                              ),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  matiere,
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: Colors.white,
-                                                    decoration: estAnnule ? TextDecoration.lineThrough : null,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                                if (salle.isNotEmpty)
-                                                  Text(
-                                                    salle,
-                                                    style: const TextStyle(
-                                                      fontSize: 9,
-                                                      color: Colors.white70,
-                                                    ),
-                                                    maxLines: 1,
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
                             ),
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+                            // Day cells
+                            ...List.generate(_joursKeys.length, (dayIdx) {
+                              final dayCourses = byDay[_joursKeys[dayIdx]] ?? [];
+                              final coursesAtTime = dayCourses.where((doc) {
+                                final d = doc.data() as Map<String, dynamic>;
+                                final startH = int.tryParse((d['heureDebut'] ?? '').split(':')[0]) ?? 0;
+                                return startH == hour;
+                              }).toList();
+
+                              return Expanded(
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  constraints: const BoxConstraints(minHeight: 60),
+                                  decoration: BoxDecoration(
+                                    color: coursesAtTime.isEmpty
+                                        ? const Color(0xFFF8FAFC)
+                                        : null,
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                      width: 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: coursesAtTime.isEmpty
+                                      ? const SizedBox.shrink()
+                                      : Column(
+                                          children: coursesAtTime.map((doc) {
+                                            final d = doc.data() as Map<String, dynamic>;
+                                            final matiere = d['matiere'] ?? d['matiereId'] ?? '';
+                                            final salle = d['salle'] ?? '';
+                                            final prof = d['professeurName'] ?? '';
+                                            final estAnnule = d['estAnnule'] ?? false;
+                                            final cIdx = docs.indexOf(doc);
+                                            final color = colors[cIdx % colors.length];
+
+                                            return GestureDetector(
+                                              onTap: () => _showEditCreneauDialog(doc.id, d),
+                                              child: Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  color: estAnnule
+                                                      ? Colors.grey.shade300
+                                                      : color,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      matiere,
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: Colors.white,
+                                                        decoration: estAnnule ? TextDecoration.lineThrough : null,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    if (salle.isNotEmpty) ...[
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        '📍 $salle',
+                                                        style: const TextStyle(
+                                                          fontSize: 9,
+                                                          color: Colors.white70,
+                                                        ),
+                                                        maxLines: 1,
+                                                      ),
+                                                    ],
+                                                    if (prof.isNotEmpty) ...[
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        '👤 $prof',
+                                                        style: const TextStyle(
+                                                          fontSize: 9,
+                                                          color: Colors.white70,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             ],
           ),
         );
@@ -388,68 +547,114 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
     );
   }
 
-  Widget _buildDaySchedule(String jour) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('emploi_du_temps')
-          .where('jour', isEqualTo: jour)
-          .where('classeId', isEqualTo: _selectedClasseId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.event_busy, size: 64, color: Colors.grey.shade300),
-                const SizedBox(height: 12),
-                Text(
-                  'Aucun créneau pour ${jour.toLowerCase()}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: AppColors.textSecondary,
-                  ),
+  Widget _buildDaysList() {
+    return Column(
+      children: _joursKeys.asMap().entries.map((entry) {
+        final index = entry.key;
+        final jour = entry.value;
+        final jourName = _jours[index];
+        
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Day Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1E3A5F),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Appuyez sur + pour ajouter',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      jourName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        }
+              ),
+              
+              // Day Schedule
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('emploi_du_temps')
+                    .where('jour', isEqualTo: jour)
+                    .where('classeId', isEqualTo: _selectedClasseId)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Center(
+                        child: Text(
+                          'No classes scheduled for $jourName',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
 
-        // Sort by heureDebut in Dart
-        final docs = snapshot.data!.docs.toList()
-          ..sort((a, b) {
-            final aH = (a.data() as Map<String, dynamic>)['heureDebut'] ?? '';
-            final bH = (b.data() as Map<String, dynamic>)['heureDebut'] ?? '';
-            return aH.toString().compareTo(bH.toString());
-          });
+                  // Sort by heureDebut
+                  final docs = snapshot.data!.docs.toList()
+                    ..sort((a, b) {
+                      final aH = (a.data() as Map<String, dynamic>)['heureDebut'] ?? '';
+                      final bH = (b.data() as Map<String, dynamic>)['heureDebut'] ?? '';
+                      return aH.toString().compareTo(bH.toString());
+                    });
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: docs.length,
-          itemBuilder: (context, index) {
-            final doc = docs[index];
-            final data = doc.data() as Map<String, dynamic>;
-            return _CreneauCard(
-              data: data,
-              docId: doc.id,
-              index: index,
-              onEdit: () => _showEditCreneauDialog(doc.id, data),
-              onDelete: () => _confirmDelete(doc.id),
-            );
-          },
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: docs.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final doc = docs[index];
+                      final data = doc.data() as Map<String, dynamic>;
+                      return _CreneauCard(
+                        data: data,
+                        docId: doc.id,
+                        index: index,
+                        onEdit: () => _showEditCreneauDialog(doc.id, data),
+                        onDelete: () => _confirmDelete(doc.id),
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
         );
-      },
+      }).toList(),
     );
   }
 
@@ -459,7 +664,7 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
     final salleCtrl = TextEditingController();
     String heureDebut = '08:00';
     String heureFin = '09:00';
-    String selectedJour = _joursKeys[_tabController.index];
+    String selectedJour = _joursKeys[0];
     String? selectedProfId;
     String? selectedProfName;
 
@@ -477,19 +682,19 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryNavy.withValues(alpha: 0.12),
+                    color: const Color(0xFF1E3A5F).withOpacity(0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.add_circle,
-                    color: AppColors.primaryNavy,
+                    color: Color(0xFF1E3A5F),
                     size: 22,
                   ),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    'Ajouter un créneau',
+                    'Add New Entry',
                     style: TextStyle(fontSize: 18),
                   ),
                 ),
@@ -506,7 +711,7 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryNavy.withValues(alpha: 0.06),
+                        color: const Color(0xFF1E3A5F).withOpacity(0.06),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -514,14 +719,14 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                           const Icon(
                             Icons.class_,
                             size: 18,
-                            color: AppColors.primaryNavy,
+                            color: Color(0xFF1E3A5F),
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Classe: $_selectedClassName',
+                            'Class: $_selectedClassName',
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.primaryNavy,
+                              color: Color(0xFF1E3A5F),
                             ),
                           ),
                         ],
@@ -531,10 +736,9 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
 
                     // Jour dropdown
                     DropdownButtonFormField<String>(
-                      // ignore: deprecated_member_use
                       value: selectedJour,
                       decoration: const InputDecoration(
-                        labelText: 'Jour',
+                        labelText: 'Day',
                         prefixIcon: Icon(Icons.calendar_today),
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(
@@ -558,7 +762,7 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                     TextField(
                       controller: matiereCtrl,
                       decoration: const InputDecoration(
-                        labelText: 'Matière',
+                        labelText: 'Subject',
                         prefixIcon: Icon(Icons.book),
                       ),
                     ),
@@ -571,8 +775,9 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                           .where('role', isEqualTo: 'professeur')
                           .snapshots(),
                       builder: (context, snap) {
-                        if (!snap.hasData)
+                        if (!snap.hasData) {
                           return const LinearProgressIndicator();
+                        }
                         final profs = snap.data!.docs.toList()
                           ..sort((a, b) {
                             final aN =
@@ -584,10 +789,9 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
 
                         return DropdownButtonFormField<String>(
                           isExpanded: true,
-                          // ignore: deprecated_member_use
                           value: selectedProfId,
                           decoration: const InputDecoration(
-                            labelText: 'Professeur',
+                            labelText: 'Teacher',
                             prefixIcon: Icon(Icons.person),
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(
@@ -624,7 +828,7 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                       children: [
                         Expanded(
                           child: _TimePickerField(
-                            label: 'Début',
+                            label: 'Start',
                             value: heureDebut,
                             onChanged: (v) =>
                                 setDialogState(() => heureDebut = v),
@@ -633,7 +837,7 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                         const SizedBox(width: 12),
                         Expanded(
                           child: _TimePickerField(
-                            label: 'Fin',
+                            label: 'End',
                             value: heureFin,
                             onChanged: (v) =>
                                 setDialogState(() => heureFin = v),
@@ -657,18 +861,18 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                           isExpanded: true,
                           value: salleCtrl.text.isNotEmpty ? salleCtrl.text : null,
                           decoration: const InputDecoration(
-                            labelText: 'Salle (optionnel)',
+                            labelText: 'Room (optional)',
                             prefixIcon: Icon(Icons.meeting_room),
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           ),
                           items: [
-                            const DropdownMenuItem<String>(value: '', child: Text('— Aucune —')),
+                            const DropdownMenuItem<String>(value: '', child: Text('— None —')),
                             ...sallesDocs.map((doc) {
                               final d = doc.data() as Map<String, dynamic>;
                               return DropdownMenuItem<String>(
                                 value: d['nom'] ?? doc.id,
-                                child: Text('${d['nom']} (${d['capacite']} pl.)'),
+                                child: Text('${d['nom']} (${d['capacite']} seats)'),
                               );
                             }),
                           ],
@@ -683,17 +887,20 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Annuler'),
+                child: const Text('Cancel'),
               ),
               ElevatedButton.icon(
                 icon: const Icon(Icons.save, size: 18),
-                label: const Text('Ajouter'),
+                label: const Text('Add'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B35),
+                ),
                 onPressed: () async {
                   if (matiereCtrl.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Veuillez entrer une matière'),
-                        backgroundColor: AppColors.error,
+                        content: Text('Please enter a subject'),
+                        backgroundColor: Color(0xFFEF4444),
                       ),
                     );
                     return;
@@ -720,8 +927,8 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Créneau ajouté avec succès ✓'),
-                        backgroundColor: AppColors.success,
+                        content: Text('Entry added successfully ✓'),
+                        backgroundColor: Color(0xFF10B981),
                       ),
                     );
                   }
@@ -765,12 +972,12 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.accentOrange.withValues(alpha: 0.12),
+                    color: const Color(0xFFFF6B35).withOpacity(0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.edit,
-                    color: AppColors.accentOrange,
+                    color: Color(0xFFFF6B35),
                     size: 22,
                   ),
                 ),
@@ -952,7 +1159,7 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                       title: const Text('Cours annulé'),
                       subtitle: const Text('Marquer comme annulé'),
                       value: estAnnule,
-                      activeTrackColor: AppColors.error.withValues(alpha: 0.4),
+                      activeTrackColor: const Color(0xFFEF4444).withOpacity(0.4),
                       contentPadding: EdgeInsets.zero,
                       onChanged: (v) => setDialogState(() => estAnnule = v),
                     ),
@@ -973,7 +1180,7 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Veuillez entrer une matière'),
-                        backgroundColor: AppColors.error,
+                        backgroundColor: const Color(0xFFEF4444),
                       ),
                     );
                     return;
@@ -999,7 +1206,7 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Créneau modifié ✓'),
-                        backgroundColor: AppColors.success,
+                        backgroundColor: const Color(0xFF10B981),
                       ),
                     );
                   }
@@ -1024,29 +1231,29 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.12),
+                color: const Color(0xFFEF4444).withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.warning_amber_rounded,
-                color: AppColors.error,
+                color: Color(0xFFEF4444),
                 size: 22,
               ),
             ),
             const SizedBox(width: 12),
-            const Text('Supprimer'),
+            const Text('Delete Entry'),
           ],
         ),
-        content: const Text('Voulez-vous vraiment supprimer ce créneau ?'),
+        content: const Text('Are you sure you want to delete this entry?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Supprimer'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -1059,8 +1266,8 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Créneau supprimé'),
-            backgroundColor: AppColors.success,
+            content: Text('Entry deleted'),
+            backgroundColor: Color(0xFF10B981),
           ),
         );
       }
@@ -1074,7 +1281,7 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.info_outline, color: AppColors.primaryNavy),
+            Icon(Icons.info_outline, color: Color(0xFF1E3A5F)),
             SizedBox(width: 8),
             Text('Gestion Emploi du Temps'),
           ],
@@ -1098,6 +1305,53 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage>
             child: const Text('Compris'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── View Toggle Button Widget ───
+class _ViewToggleButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ViewToggleButton({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFFF6B35) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1129,38 +1383,35 @@ class _CreneauCard extends StatelessWidget {
     final estAnnule = data['estAnnule'] ?? false;
 
     final colors = [
-      AppColors.roleEleve,
-      AppColors.roleProfesseur,
-      AppColors.accentOrange,
-      AppColors.roleAdmin,
-      AppColors.info,
-      AppColors.success,
+      const Color(0xFF3B82F6),
+      const Color(0xFF8B5CF6),
+      const Color(0xFFFF6B35),
+      const Color(0xFF10B981),
+      const Color(0xFFF59E0B),
+      const Color(0xFFEF4444),
     ];
     final color = colors[index % colors.length];
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: InkWell(
         onTap: onEdit,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
               // Time badge
               Container(
-                width: 60,
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                width: 70,
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: estAnnule
-                        ? [Colors.grey, Colors.grey.shade400]
-                        : [color, color.withValues(alpha: 0.7)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
+                  color: estAnnule ? Colors.grey : color,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
                   children: [
@@ -1201,7 +1452,7 @@ class _CreneauCard extends StatelessWidget {
                                   : null,
                               color: estAnnule
                                   ? Colors.grey
-                                  : AppColors.textPrimary,
+                                  : const Color(0xFF1E293B),
                             ),
                           ),
                         ),
@@ -1212,14 +1463,14 @@ class _CreneauCard extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.error.withValues(alpha: 0.1),
+                              color: const Color(0xFFEF4444).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text(
-                              'Annulé',
+                              'Cancelled',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: AppColors.error,
+                                color: Color(0xFFEF4444),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1233,14 +1484,14 @@ class _CreneauCard extends StatelessWidget {
                           const Icon(
                             Icons.person,
                             size: 14,
-                            color: AppColors.textSecondary,
+                            color: Color(0xFF64748B),
                           ),
                           const SizedBox(width: 4),
                           Text(
                             profName,
                             style: const TextStyle(
                               fontSize: 12,
-                              color: AppColors.textSecondary,
+                              color: Color(0xFF64748B),
                             ),
                           ),
                         ],
@@ -1252,14 +1503,14 @@ class _CreneauCard extends StatelessWidget {
                           const Icon(
                             Icons.room,
                             size: 14,
-                            color: AppColors.textSecondary,
+                            color: Color(0xFF64748B),
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Salle $salle',
+                            'Room $salle',
                             style: const TextStyle(
                               fontSize: 12,
-                              color: AppColors.textSecondary,
+                              color: Color(0xFF64748B),
                             ),
                           ),
                         ],
@@ -1274,12 +1525,12 @@ class _CreneauCard extends StatelessWidget {
                   if (val == 'delete') onDelete();
                 },
                 itemBuilder: (ctx) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Modifier')),
+                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
                   const PopupMenuItem(
                     value: 'delete',
                     child: Text(
-                      'Supprimer',
-                      style: TextStyle(color: AppColors.error),
+                      'Delete',
+                      style: TextStyle(color: Color(0xFFEF4444)),
                     ),
                   ),
                 ],
