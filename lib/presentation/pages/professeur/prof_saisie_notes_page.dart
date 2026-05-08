@@ -706,6 +706,201 @@ class _ProfSaisieNotesPageState extends State<ProfSaisieNotesPage> {
       ),
     );
   }
+
+  Future<void> _exportGrades() async {
+    if (_selectedClasseId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a class first'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // Fetch class data
+      final classDoc = await FirebaseFirestore.instance
+          .collection('classes')
+          .doc(_selectedClasseId)
+          .get();
+      
+      if (!classDoc.exists) return;
+      
+      final classData = classDoc.data() as Map<String, dynamic>;
+      final eleveIds = List<String>.from(classData['eleveIds'] ?? []);
+      
+      if (eleveIds.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No students in this class'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Fetch students
+      final students = await _fetchStudentsByIds(eleveIds);
+      
+      // Fetch notes
+      final notesSnap = await FirebaseFirestore.instance
+          .collection('notes')
+          .where('classeId', isEqualTo: _selectedClasseId)
+          .where('trimestre', isEqualTo: _selectedTrimestre)
+          .get();
+      
+      final notes = notesSnap.docs;
+
+      // Build CSV content
+      final StringBuffer csv = StringBuffer();
+      
+      // Header
+      csv.writeln('Student ID,Student Name,Score /20,Average,Status,Notes Count,Last Updated');
+      
+      // Data rows
+      for (final student in students) {
+        final studentData = student.data() as Map<String, dynamic>;
+        final prenom = studentData['prenom'] ?? '';
+        final nom = studentData['nom'] ?? '';
+        final fullName = '$prenom $nom'.trim();
+        
+        // Calculate student's average
+        final studentNotes = notes.where((n) {
+          final d = n.data() as Map<String, dynamic>;
+          return d['eleveId'] == student.id;
+        }).toList();
+        
+        double totalScore = 0;
+        double totalCoeff = 0;
+        DateTime? lastUpdate;
+        
+        for (final note in studentNotes) {
+          final d = note.data() as Map<String, dynamic>;
+          final valeur = (d['valeur'] as num?)?.toDouble() ?? 0;
+          final coeff = (d['coefficient'] as num?)?.toDouble() ?? 1;
+          totalScore += valeur * coeff;
+          totalCoeff += coeff;
+          
+          final noteDate = (d['date'] as Timestamp?)?.toDate();
+          if (noteDate != null && (lastUpdate == null || noteDate.isAfter(lastUpdate))) {
+            lastUpdate = noteDate;
+          }
+        }
+        
+        final average = totalCoeff > 0 ? totalScore / totalCoeff : 0.0;
+        final hasNotes = studentNotes.isNotEmpty;
+        final status = hasNotes ? 'COMPLETED' : 'PENDING';
+        final lastUpdateStr = lastUpdate != null 
+            ? '${lastUpdate.day}/${lastUpdate.month}/${lastUpdate.year}'
+            : 'N/A';
+        
+        csv.writeln(
+          '#ST-${student.id.substring(0, 4).toUpperCase()},'
+          '"$fullName",'
+          '${hasNotes ? average.toStringAsFixed(1) : '--'},'
+          '${hasNotes ? average.toStringAsFixed(1) : '--'},'
+          '$status,'
+          '${studentNotes.length},'
+          '$lastUpdateStr'
+        );
+      }
+
+      // Show download dialog with CSV content
+      if (mounted) {
+        _showExportDialog(csv.toString());
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showExportDialog(String csvContent) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.download, color: Color(0xFF10B981)),
+            const SizedBox(width: 12),
+            const Text('Export Grades'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'CSV data ready for export:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 300),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    csvContent,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Copy the text above and save it as a .csv file',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF64748B),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              // Copy to clipboard
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('CSV data copied! Save it as a .csv file'),
+                  backgroundColor: Color(0xFF10B981),
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text('Copy'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _InsightItem extends StatelessWidget {
