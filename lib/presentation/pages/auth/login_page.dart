@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:math' as math;
+import 'dart:ui';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/validators.dart';
 import '../../blocs/auth/auth_bloc.dart';
@@ -8,7 +9,7 @@ import '../../blocs/auth/auth_event.dart';
 import '../../blocs/auth/auth_state.dart';
 import 'sign_up_page.dart';
 
-/// Écran de connexion multi-profil avec design innovant
+/// Ultra-modern login page with innovative design
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -24,8 +25,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   
   late AnimationController _fadeController;
   late AnimationController _slideController;
+  late AnimationController _rotationController;
+  late AnimationController _pulseController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  late Animation<double> _rotationAnimation;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -33,23 +38,38 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1200),
     );
     
     _slideController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1400),
     );
+    
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    )..repeat();
+    
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
     
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
     
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.15),
+      begin: const Offset(0, 0.2),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+    );
+    
+    _rotationAnimation = Tween<double>(begin: 0, end: 2 * math.pi).animate(_rotationController);
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     
     _fadeController.forward();
@@ -62,6 +82,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     _passwordController.dispose();
     _fadeController.dispose();
     _slideController.dispose();
+    _rotationController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -85,10 +107,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final isDesktop = size.width > 600;
+    final isDesktop = size.width > 900;
     
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthError) {
@@ -98,82 +119,292 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             _showSnackBar('E-mail de réinitialisation envoyé');
           }
         },
-        child: Stack(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0F172A), // Dark navy
+                Color(0xFF1E293B), // Slate
+                Color(0xFF334155), // Lighter slate
+              ],
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Animated mesh gradient background
+              _buildMeshGradientBackground(),
+              
+              // Floating particles
+              _buildFloatingParticles(),
+              
+              // Main content
+              SafeArea(
+                child: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeshGradientBackground() {
+    return AnimatedBuilder(
+      animation: _rotationController,
+      builder: (context, child) {
+        return Stack(
           children: [
-            // Animated background elements
-            _buildAnimatedBackground(),
-            
-            // Main content
-            SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isDesktop ? 48.0 : 24.0,
-                    vertical: 40.0,
+            Positioned(
+              top: -200,
+              right: -200,
+              child: Transform.rotate(
+                angle: _rotationAnimation.value,
+                child: Container(
+                  width: 600,
+                  height: 600,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        const Color(0xFF6366F1).withOpacity(0.3),
+                        const Color(0xFF8B5CF6).withOpacity(0.2),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: _slideAnimation,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 440),
-                        child: _buildLoginCard(isDesktop),
-                      ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -150,
+              left: -150,
+              child: Transform.rotate(
+                angle: -_rotationAnimation.value,
+                child: Container(
+                  width: 500,
+                  height: 500,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        const Color(0xFFEC4899).withOpacity(0.25),
+                        const Color(0xFFF59E0B).withOpacity(0.15),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 200,
+              left: 100,
+              child: Transform.rotate(
+                angle: _rotationAnimation.value * 0.5,
+                child: Container(
+                  width: 400,
+                  height: 400,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        const Color(0xFF3B82F6).withOpacity(0.2),
+                        const Color(0xFF06B6D4).withOpacity(0.1),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildAnimatedBackground() {
+  Widget _buildFloatingParticles() {
     return Stack(
+      children: List.generate(15, (index) {
+        final random = math.Random(index);
+        final size = 4.0 + random.nextDouble() * 8;
+        final left = random.nextDouble() * 100;
+        final top = random.nextDouble() * 100;
+        final duration = 3 + random.nextInt(4);
+        
+        return Positioned(
+          left: MediaQuery.of(context).size.width * (left / 100),
+          top: MediaQuery.of(context).size.height * (top / 100),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: Duration(seconds: duration),
+            builder: (context, value, child) {
+              return Transform.translate(
+                offset: Offset(
+                  math.sin(value * math.pi * 2) * 20,
+                  math.cos(value * math.pi * 2) * 20,
+                ),
+                child: Opacity(
+                  opacity: 0.3 + (math.sin(value * math.pi * 2) * 0.3),
+                  child: Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.5),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildDesktopLayout() {
+    return Row(
       children: [
-        Positioned(
-          top: -100,
-          right: -100,
-          child: _buildFloatingCircle(280, const Color(0xFF0066FF), 0.04),
+        // Left side - Branding
+        Expanded(
+          flex: 5,
+          child: Padding(
+            padding: const EdgeInsets.all(80),
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildLogo(),
+                  const SizedBox(height: 40),
+                  const Text(
+                    'Welcome to',
+                    style: TextStyle(
+                      fontSize: 24,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w300,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [
+                        Color(0xFF60A5FA),
+                        Color(0xFFA78BFA),
+                        Color(0xFFF472B6),
+                      ],
+                    ).createShader(bounds),
+                    child: const Text(
+                      'EduLycée',
+                      style: TextStyle(
+                        fontSize: 72,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -2,
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Your complete school management solution.\nStreamline education with powerful tools.',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white60,
+                      fontWeight: FontWeight.w400,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 60),
+                  _buildFeaturesList(),
+                ],
+              ),
+            ),
+          ),
         ),
-        Positioned(
-          bottom: -120,
-          left: -120,
-          child: _buildFloatingCircle(320, const Color(0xFF0066FF), 0.03),
-        ),
-        Positioned(
-          top: 150,
-          left: -30,
-          child: _buildFloatingCircle(180, const Color(0xFF0066FF), 0.05),
+        
+        // Right side - Login form
+        Expanded(
+          flex: 4,
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(40),
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: _buildGlassmorphicCard(),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildFloatingCircle(double size, Color color, double opacity) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(seconds: 4),
-      builder: (context, value, child) {
-        return Transform.translate(
-          offset: Offset(
-            math.sin(value * math.pi * 2) * 15,
-            math.cos(value * math.pi * 2) * 15,
+  Widget _buildMobileLayout() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: Column(
+              children: [
+                _buildLogo(),
+                const SizedBox(height: 40),
+                _buildGlassmorphicCard(),
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogo() {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _pulseAnimation.value,
           child: Container(
-            width: size,
-            height: size,
+            width: 80,
+            height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: RadialGradient(
+              gradient: const LinearGradient(
                 colors: [
-                  color.withOpacity(opacity),
-                  color.withOpacity(opacity * 0.3),
-                  Colors.transparent,
+                  Color(0xFF60A5FA),
+                  Color(0xFFA78BFA),
                 ],
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF60A5FA).withOpacity(0.5),
+                  blurRadius: 30,
+                  spreadRadius: 5,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.school_rounded,
+              size: 40,
+              color: Colors.white,
             ),
           ),
         );
@@ -181,229 +412,229 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildLoginCard(bool isDesktop) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0066FF).withOpacity(0.08),
-            blurRadius: 40,
-            offset: const Offset(0, 10),
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.all(isDesktop ? 48 : 36),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildIllustrationWithGlow(),
-            const SizedBox(height: 32),
-            _buildTitle(),
-            const SizedBox(height: 8),
-            _buildSubtitle(),
-            const SizedBox(height: 40),
-            _buildEmailField(),
-            const SizedBox(height: 20),
-            _buildPasswordField(),
-            const SizedBox(height: 32),
-            _buildSignInButton(),
-            const SizedBox(height: 32),
-            _buildDivider(),
-            const SizedBox(height: 28),
-            _buildSignUpButton(),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildFeaturesList() {
+    final features = [
+      {'icon': Icons.dashboard_customize, 'text': 'Intuitive Dashboard'},
+      {'icon': Icons.people_alt, 'text': 'Student Management'},
+      {'icon': Icons.calendar_today, 'text': 'Smart Scheduling'},
+      {'icon': Icons.analytics, 'text': 'Advanced Analytics'},
+    ];
 
-  Widget _buildIllustrationWithGlow() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Glow effect
-        Container(
-          width: 140,
-          height: 140,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                const Color(0xFF0066FF).withOpacity(0.15),
-                const Color(0xFF0066FF).withOpacity(0.05),
-                Colors.transparent,
-              ],
-            ),
-          ),
-        ),
-        // Image container
-        Container(
-          width: 110,
-          height: 110,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0066FF).withOpacity(0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+    return Column(
+      children: features.map((feature) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(
+                  feature['icon'] as IconData,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                feature['text'] as String,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
-          child: ClipOval(
-            child: Image.asset(
-              'assets/images/education.png',
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF0066FF).withOpacity(0.1),
-                        const Color(0xFF0066FF).withOpacity(0.05),
-                      ],
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildGlassmorphicCard() {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 480),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(32),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.15),
+                  Colors.white.withOpacity(0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.2),
+                width: 1.5,
+              ),
+            ),
+            padding: const EdgeInsets.all(40),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Sign In',
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: -1,
                     ),
                   ),
-                  child: const Icon(
-                    Icons.school_rounded,
-                    size: 50,
-                    color: Color(0xFF0066FF),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Enter your credentials to access your account',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.white.withOpacity(0.7),
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
-                );
-              },
+                  const SizedBox(height: 40),
+                  _buildModernTextField(
+                    controller: _emailController,
+                    label: 'Email Address',
+                    hintText: 'name@example.com',
+                    icon: Icons.email_outlined,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: Validators.email,
+                  ),
+                  const SizedBox(height: 24),
+                  _buildModernTextField(
+                    controller: _passwordController,
+                    label: 'Password',
+                    hintText: '••••••••',
+                    icon: Icons.lock_outline,
+                    obscureText: !_isPasswordVisible,
+                    validator: Validators.password,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isPasswordVisible
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: Colors.white.withOpacity(0.6),
+                        size: 22,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => _showForgotPasswordDialog(context),
+                      child: Text(
+                        'Forgot Password?',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  _buildSignInButton(),
+                  const SizedBox(height: 32),
+                  _buildDivider(),
+                  const SizedBox(height: 32),
+                  _buildSignUpButton(),
+                ],
+              ),
             ),
           ),
         ),
-        // Verified badge
-        Positioned(
-          bottom: 0,
-          right: 0,
-          child: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0066FF),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0066FF).withOpacity(0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.check_rounded,
-              color: Colors.white,
-              size: 16,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTitle() {
-    return const Text(
-      'Welcome Back',
-      style: TextStyle(
-        fontSize: 32,
-        fontWeight: FontWeight.w800,
-        color: Color(0xFF1A1A1A),
-        letterSpacing: -0.8,
-        height: 1.2,
       ),
     );
   }
 
-  Widget _buildSubtitle() {
-    return const Text(
-      'Please enter your details to sign in',
-      style: TextStyle(
-        fontSize: 15,
-        color: Color(0xFF6B7280),
-        fontWeight: FontWeight.w400,
-        height: 1.5,
-      ),
-    );
-  }
-
-  Widget _buildEmailField() {
-    return _AnimatedTextField(
-      controller: _emailController,
-      label: 'Email Address',
-      hintText: 'name@example.com',
-      prefixIcon: Icons.email_outlined,
-      keyboardType: TextInputType.emailAddress,
-      validator: Validators.email,
-    );
-  }
-
-  Widget _buildPasswordField() {
+  Widget _buildModernTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hintText,
+    required IconData icon,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    Widget? suffixIcon,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Password',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A1A1A),
-              ),
-            ),
-            GestureDetector(
-              onTap: () {
-                _showForgotPasswordDialog(context);
-              },
-              child: const Text(
-                'Forgot Password?',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF0066FF),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _AnimatedTextField(
-          controller: _passwordController,
-          hintText: '••••••••',
-          prefixIcon: Icons.lock_outline_rounded,
-          obscureText: !_isPasswordVisible,
-          suffixIcon: IconButton(
-            icon: Icon(
-              _isPasswordVisible
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined,
-              color: const Color(0xFF9CA3AF),
-              size: 20,
-            ),
-            onPressed: () {
-              setState(() {
-                _isPasswordVisible = !_isPasswordVisible;
-              });
-            },
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withOpacity(0.9),
+            letterSpacing: 0.5,
           ),
-          validator: Validators.password,
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: TextFormField(
+            controller: controller,
+            obscureText: obscureText,
+            keyboardType: keyboardType,
+            validator: validator,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: TextStyle(
+                fontSize: 16,
+                color: Colors.white.withOpacity(0.4),
+                fontWeight: FontWeight.w400,
+              ),
+              prefixIcon: Icon(
+                icon,
+                color: Colors.white.withOpacity(0.6),
+                size: 22,
+              ),
+              suffixIcon: suffixIcon,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 18,
+              ),
+              errorStyle: TextStyle(
+                fontSize: 12,
+                color: Colors.red.shade300,
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -416,17 +647,18 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         
         return Container(
           width: double.infinity,
-          height: 54,
+          height: 58,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             gradient: const LinearGradient(
-              colors: [Color(0xFF0066FF), Color(0xFF0052CC)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF60A5FA),
+                Color(0xFFA78BFA),
+              ],
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0066FF).withOpacity(0.3),
+                color: const Color(0xFF60A5FA).withOpacity(0.5),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -439,7 +671,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               foregroundColor: Colors.white,
               shadowColor: Colors.transparent,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
               ),
             ),
             child: isLoading
@@ -457,13 +689,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       Text(
                         'Sign In',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.3,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
                         ),
                       ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward_rounded, size: 20),
+                      SizedBox(width: 12),
+                      Icon(Icons.arrow_forward_rounded, size: 22),
                     ],
                   ),
           ),
@@ -478,41 +710,25 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         Expanded(
           child: Container(
             height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.transparent,
-                  const Color(0xFFE5E7EB).withOpacity(0.5),
-                  const Color(0xFFE5E7EB),
-                ],
-              ),
-            ),
+            color: Colors.white.withOpacity(0.2),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'OR',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF9CA3AF),
-              letterSpacing: 0.8,
+              color: Colors.white.withOpacity(0.5),
+              letterSpacing: 1,
             ),
           ),
         ),
         Expanded(
           child: Container(
             height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFFE5E7EB),
-                  const Color(0xFFE5E7EB).withOpacity(0.5),
-                  Colors.transparent,
-                ],
-              ),
-            ),
+            color: Colors.white.withOpacity(0.2),
           ),
         ),
       ],
@@ -520,32 +736,37 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 
   Widget _buildSignUpButton() {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: 52,
-      child: OutlinedButton(
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: ElevatedButton(
         onPressed: _navigateToSignUp,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: const Color(0xFF0066FF),
-          side: const BorderSide(
-            color: Color(0xFF0066FF),
-            width: 1.5,
-          ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.person_add, size: 20),
-            SizedBox(width: 8),
+            Icon(Icons.person_add_outlined, size: 22),
+            SizedBox(width: 12),
             Text(
               'Create Account',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
               ),
             ),
           ],
@@ -558,41 +779,76 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     final emailCtrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          'Reset Password',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: TextFormField(
-          controller: emailCtrl,
-          decoration: const InputDecoration(
-            labelText: AppStrings.email,
-            prefixIcon: Icon(Icons.email_outlined),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text(AppStrings.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (emailCtrl.text.isNotEmpty) {
-                context.read<AuthBloc>().add(
-                  AuthResetPasswordRequested(email: emailCtrl.text.trim()),
-                );
-                Navigator.pop(ctx);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066FF),
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+              color: Colors.white.withOpacity(0.2),
+              width: 1,
             ),
-            child: const Text('Send Link'),
           ),
-        ],
+          title: const Text(
+            'Reset Password',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          content: TextFormField(
+            controller: emailCtrl,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: AppStrings.email,
+              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+              prefixIcon: Icon(
+                Icons.email_outlined,
+                color: Colors.white.withOpacity(0.7),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: Colors.white.withOpacity(0.3),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFF60A5FA),
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                AppStrings.cancel,
+                style: TextStyle(color: Colors.white.withOpacity(0.7)),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (emailCtrl.text.isNotEmpty) {
+                  context.read<AuthBloc>().add(
+                    AuthResetPasswordRequested(email: emailCtrl.text.trim()),
+                  );
+                  Navigator.pop(ctx);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF60A5FA),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Send Link'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -603,142 +859,27 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         content: Row(
           children: [
             Icon(
-              isError ? Icons.error : Icons.check_circle,
+              isError ? Icons.error_outline : Icons.check_circle_outline,
               color: Colors.white,
             ),
             const SizedBox(width: 12),
-            Expanded(child: Text(message)),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
           ],
         ),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError
+            ? const Color(0xFFEF4444)
+            : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
         margin: const EdgeInsets.all(16),
       ),
-    );
-  }
-}
-
-// Animated TextField Widget
-class _AnimatedTextField extends StatefulWidget {
-  final TextEditingController controller;
-  final String? label;
-  final String hintText;
-  final bool obscureText;
-  final TextInputType? keyboardType;
-  final IconData? prefixIcon;
-  final Widget? suffixIcon;
-  final String? Function(String?)? validator;
-
-  const _AnimatedTextField({
-    required this.controller,
-    this.label,
-    required this.hintText,
-    this.obscureText = false,
-    this.keyboardType,
-    this.prefixIcon,
-    this.suffixIcon,
-    this.validator,
-  });
-
-  @override
-  State<_AnimatedTextField> createState() => _AnimatedTextFieldState();
-}
-
-class _AnimatedTextFieldState extends State<_AnimatedTextField> {
-  bool _isFocused = false;
-  bool _hasError = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.label != null) ...[
-          Text(
-            widget.label!,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1A1A1A),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: _hasError
-                  ? Colors.red.withOpacity(0.5)
-                  : _isFocused
-                      ? const Color(0xFF0066FF)
-                      : const Color(0xFFE5E7EB),
-              width: _isFocused ? 2 : 1,
-            ),
-            boxShadow: _isFocused
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFF0066FF).withOpacity(0.1),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Focus(
-            onFocusChange: (hasFocus) {
-              setState(() => _isFocused = hasFocus);
-            },
-            child: TextFormField(
-              controller: widget.controller,
-              obscureText: widget.obscureText,
-              keyboardType: widget.keyboardType,
-              validator: (value) {
-                final error = widget.validator?.call(value);
-                setState(() => _hasError = error != null);
-                return error;
-              },
-              style: const TextStyle(
-                fontSize: 15,
-                color: Color(0xFF1A1A1A),
-                fontWeight: FontWeight.w500,
-              ),
-              decoration: InputDecoration(
-                hintText: widget.hintText,
-                hintStyle: const TextStyle(
-                  fontSize: 15,
-                  color: Color(0xFF9CA3AF),
-                  fontWeight: FontWeight.w400,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-                prefixIcon: widget.prefixIcon != null
-                    ? Icon(
-                        widget.prefixIcon,
-                        color: _isFocused
-                            ? const Color(0xFF0066FF)
-                            : const Color(0xFF9CA3AF),
-                        size: 20,
-                      )
-                    : null,
-                suffixIcon: widget.suffixIcon,
-                errorStyle: const TextStyle(
-                  fontSize: 12,
-                  height: 0.8,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

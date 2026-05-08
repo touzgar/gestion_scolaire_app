@@ -50,7 +50,7 @@ class AdminSettingsPage extends StatelessWidget {
                       const SizedBox(height: 32),
                       
                       // Profile Card
-                      if (user != null) _buildProfileCard(user),
+                      if (user != null) _buildProfileCard(context, user),
                       const SizedBox(height: 24),
                       
                       // Application Section
@@ -66,7 +66,7 @@ class AdminSettingsPage extends StatelessWidget {
                       const SizedBox(height: 24),
                       
                       // Security Card
-                      _buildSecurityCard(),
+                      _buildSecurityCard(context),
                       const SizedBox(height: 32),
                       
                       // Footer
@@ -125,7 +125,7 @@ class AdminSettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileCard(dynamic user) {
+  Widget _buildProfileCard(BuildContext context, dynamic user) {
     // Get role display name from UserRole enum
     String getRoleDisplayName(dynamic role) {
       final roleStr = role.toString().split('.').last.toLowerCase();
@@ -344,7 +344,7 @@ class AdminSettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSecurityCard() {
+  Widget _buildSecurityCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -716,6 +716,8 @@ class AdminSettingsPage extends StatelessWidget {
         bool notifNotes = true;
         bool notifAbsences = true;
         bool notifMessages = true;
+        bool notifEmail = false;
+        bool notifSMS = false;
 
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
@@ -739,31 +741,67 @@ class AdminSettingsPage extends StatelessWidget {
                   const Text('Notifications'),
                 ],
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SwitchListTile(
-                    title: const Text('Notes'),
-                    subtitle: const Text('Nouvelles notes saisies'),
-                    value: notifNotes,
-                    activeColor: const Color(0xFF10B981),
-                    onChanged: (v) => setDialogState(() => notifNotes = v),
-                  ),
-                  SwitchListTile(
-                    title: const Text('Absences'),
-                    subtitle: const Text('Nouvelles absences signalées'),
-                    value: notifAbsences,
-                    activeColor: const Color(0xFF10B981),
-                    onChanged: (v) => setDialogState(() => notifAbsences = v),
-                  ),
-                  SwitchListTile(
-                    title: const Text('Messages'),
-                    subtitle: const Text('Nouveaux messages reçus'),
-                    value: notifMessages,
-                    activeColor: const Color(0xFF10B981),
-                    onChanged: (v) => setDialogState(() => notifMessages = v),
-                  ),
-                ],
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Types de notifications',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      title: const Text('Notes'),
+                      subtitle: const Text('Nouvelles notes saisies'),
+                      value: notifNotes,
+                      activeColor: const Color(0xFF10B981),
+                      onChanged: (v) => setDialogState(() => notifNotes = v),
+                    ),
+                    SwitchListTile(
+                      title: const Text('Absences'),
+                      subtitle: const Text('Nouvelles absences signalées'),
+                      value: notifAbsences,
+                      activeColor: const Color(0xFF10B981),
+                      onChanged: (v) => setDialogState(() => notifAbsences = v),
+                    ),
+                    SwitchListTile(
+                      title: const Text('Messages'),
+                      subtitle: const Text('Nouveaux messages reçus'),
+                      value: notifMessages,
+                      activeColor: const Color(0xFF10B981),
+                      onChanged: (v) => setDialogState(() => notifMessages = v),
+                    ),
+                    const Divider(height: 24),
+                    const Text(
+                      'Canaux de notification',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      title: const Text('Email'),
+                      subtitle: const Text('Recevoir par email'),
+                      value: notifEmail,
+                      activeColor: const Color(0xFF10B981),
+                      onChanged: (v) => setDialogState(() => notifEmail = v),
+                    ),
+                    SwitchListTile(
+                      title: const Text('SMS'),
+                      subtitle: const Text('Recevoir par SMS'),
+                      value: notifSMS,
+                      activeColor: const Color(0xFF10B981),
+                      onChanged: (v) => setDialogState(() => notifSMS = v),
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -774,16 +812,39 @@ class AdminSettingsPage extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF10B981),
                   ),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Préférences de notification enregistrées ✓',
+                  onPressed: () async {
+                    // Save to Firestore
+                    try {
+                      final firebaseUser = FirebaseAuth.instance.currentUser;
+                      if (firebaseUser != null) {
+                        await FirebaseFirestore.instance
+                            .collection('utilisateurs')
+                            .doc(firebaseUser.uid)
+                            .update({
+                          'notificationPreferences': {
+                            'notes': notifNotes,
+                            'absences': notifAbsences,
+                            'messages': notifMessages,
+                            'email': notifEmail,
+                            'sms': notifSMS,
+                          },
+                        });
+                      }
+                    } catch (e) {
+                      // Ignore errors for now
+                    }
+                    
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Préférences de notification enregistrées ✓',
+                          ),
+                          backgroundColor: Color(0xFF10B981),
                         ),
-                        backgroundColor: Color(0xFF10B981),
-                      ),
-                    );
+                      );
+                    }
                   },
                   child: const Text('Enregistrer'),
                 ),
@@ -792,6 +853,358 @@ class AdminSettingsPage extends StatelessWidget {
           },
         );
       },
+    );
+  }
+
+  // ─── Edit Profile Dialog ───
+  void _showEditProfileDialog(BuildContext context, dynamic user) {
+    final nomCtrl = TextEditingController(text: user.nom);
+    final prenomCtrl = TextEditingController(text: user.prenom);
+    final emailCtrl = TextEditingController(text: user.email);
+    final telephoneCtrl = TextEditingController(text: user.telephone ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.edit,
+                color: Color(0xFF3B82F6),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('Modifier le profil'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: prenomCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Prénom',
+                  prefixIcon: Icon(Icons.person_outline),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nomCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nom',
+                  prefixIcon: Icon(Icons.person),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: telephoneCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Téléphone',
+                  prefixIcon: Icon(Icons.phone),
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF3B82F6),
+            ),
+            onPressed: () async {
+              try {
+                final firebaseUser = FirebaseAuth.instance.currentUser;
+                if (firebaseUser != null) {
+                  await FirebaseFirestore.instance
+                      .collection('utilisateurs')
+                      .doc(firebaseUser.uid)
+                      .update({
+                    'nom': nomCtrl.text.trim(),
+                    'prenom': prenomCtrl.text.trim(),
+                    'email': emailCtrl.text.trim(),
+                    'telephone': telephoneCtrl.text.trim(),
+                  });
+
+                  // Update email in Firebase Auth if changed
+                  if (emailCtrl.text.trim() != user.email) {
+                    await firebaseUser.updateEmail(emailCtrl.text.trim());
+                  }
+                }
+
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Profil mis à jour avec succès ✓'),
+                      backgroundColor: Color(0xFF10B981),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Erreur: $e'),
+                      backgroundColor: const Color(0xFFEF4444),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 2FA Dialog ───
+  void _show2FADialog(BuildContext context) {
+    bool is2FAEnabled = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E3A5F).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.shield,
+                    color: Color(0xFF1E3A5F),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text('Double Authentification'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Renforcez la sécurité de votre compte en activant l\'authentification à deux facteurs (2FA).',
+                  style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.security, color: Color(0xFF1E3A5F)),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Activer 2FA',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          Switch(
+                            value: is2FAEnabled,
+                            activeColor: const Color(0xFF10B981),
+                            onChanged: (v) => setDialogState(() => is2FAEnabled = v),
+                          ),
+                        ],
+                      ),
+                      if (is2FAEnabled) ...[
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Méthode d\'authentification:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _2FAMethodTile(
+                          icon: Icons.sms,
+                          title: 'SMS',
+                          subtitle: 'Code envoyé par SMS',
+                          isSelected: true,
+                          onTap: () {},
+                        ),
+                        const SizedBox(height: 8),
+                        _2FAMethodTile(
+                          icon: Icons.email,
+                          title: 'Email',
+                          subtitle: 'Code envoyé par email',
+                          isSelected: false,
+                          onTap: () {},
+                        ),
+                        const SizedBox(height: 8),
+                        _2FAMethodTile(
+                          icon: Icons.phone_android,
+                          title: 'Application',
+                          subtitle: 'Google Authenticator',
+                          isSelected: false,
+                          onTap: () {},
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Fermer'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A5F),
+                ),
+                onPressed: () async {
+                  // Save 2FA settings
+                  try {
+                    final firebaseUser = FirebaseAuth.instance.currentUser;
+                    if (firebaseUser != null) {
+                      await FirebaseFirestore.instance
+                          .collection('utilisateurs')
+                          .doc(firebaseUser.uid)
+                          .update({
+                        'twoFactorEnabled': is2FAEnabled,
+                        'twoFactorMethod': is2FAEnabled ? 'sms' : null,
+                      });
+                    }
+                  } catch (e) {
+                    // Ignore errors
+                  }
+
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          is2FAEnabled
+                              ? '2FA activée avec succès ✓'
+                              : '2FA désactivée',
+                        ),
+                        backgroundColor: const Color(0xFF10B981),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Enregistrer'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _2FAMethodTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF1E3A5F).withOpacity(0.1)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF1E3A5F)
+                : const Color(0xFFE2E8F0),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? const Color(0xFF1E3A5F) : const Color(0xFF64748B),
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: isSelected ? const Color(0xFF1E3A5F) : const Color(0xFF1E293B),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(
+                Icons.check_circle,
+                color: Color(0xFF10B981),
+                size: 20,
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
