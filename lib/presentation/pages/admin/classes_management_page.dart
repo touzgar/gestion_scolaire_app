@@ -440,23 +440,41 @@ class _ClassesManagementPageState extends State<ClassesManagementPage> {
   }
 
   Widget _buildStatisticsSection() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('classes').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final classes = snapshot.data!.docs;
+        int totalEleves = 0;
+        int totalCapacity = 0;
+
+        for (final doc in classes) {
+          final data = doc.data() as Map<String, dynamic>;
+          final eleveIds = List<String>.from(data['eleveIds'] ?? []);
+          final capacite = (data['capaciteMax'] as num?)?.toInt() ?? 35;
+          totalEleves += eleveIds.length;
+          totalCapacity += capacite;
+        }
+
+        final fillRate = totalCapacity > 0 ? ((totalEleves / totalCapacity * 100).round()) : 0;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Taux de Remplissage Global',
@@ -465,104 +483,86 @@ class _ClassesManagementPageState extends State<ClassesManagementPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
+                    const SizedBox(height: 24),
+                    Center(
+                      child: Text(
+                        '$fillRate%',
+                        style: const TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E293B),
+                        ),
                       ),
-                      child: const Text(
-                        '+20% vs mois dernier',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF10B981),
-                          fontWeight: FontWeight.w600,
+                    ),
+                    Center(
+                      child: Text(
+                        '$totalEleves / $totalCapacity élèves',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                const Center(
-                  child: Text(
-                    '84%',
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                ),
-                const Center(
-                  child: Text(
-                    'Capacité Totale Utilisée',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: const Icon(Icons.calendar_today, color: Colors.white, size: 24),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Statut du Trimestre',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Toutes les classes ont été assignées et progressent normalement',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white70,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF6B35),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.school, color: Colors.white, size: 24),
                     ),
-                  ),
-                  child: const Text('Télécharger le rapport'),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Classes Actives',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${classes.length} classe${classes.length > 1 ? 's' : ''} créée${classes.length > 1 ? 's' : ''}',
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Total: $totalEleves élèves inscrits',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -599,83 +599,434 @@ class _ClassesManagementPageState extends State<ClassesManagementPage> {
     final isEdit = id != null;
     final nomCtrl = TextEditingController(text: data?['nom'] ?? '');
     final niveauCtrl = TextEditingController(text: data?['niveau'] ?? '');
+    final filiereCtrl = TextEditingController(text: data?['filiere'] ?? '');
     final capaciteCtrl = TextEditingController(text: (data?['capaciteMax'] ?? 35).toString());
+    final anneeScolaireCtrl = TextEditingController(text: data?['anneeScolaire'] ?? '2025-2026');
+    
+    List<String> selectedEleveIds = List<String>.from(data?['eleveIds'] ?? []);
+    String? selectedProfId = data?['professeurPrincipalId'];
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(isEdit ? 'Modifier la classe' : 'Nouvelle classe'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nomCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Nom (ex: Term S1)',
-                  prefixIcon: Icon(Icons.class_),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF6B35).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.class_,
+                        color: Color(0xFFFF6B35),
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        isEdit ? 'Modifier la classe' : 'Nouvelle classe',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: niveauCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Niveau',
-                  prefixIcon: Icon(Icons.layers),
+                const SizedBox(height: 24),
+                
+                // Form Fields
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Nom
+                        TextField(
+                          controller: nomCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Nom de la classe *',
+                            hintText: 'Ex: Terminale S1',
+                            prefixIcon: const Icon(Icons.class_, color: Color(0xFFFF6B35)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFFF6B35), width: 2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Niveau
+                        TextField(
+                          controller: niveauCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Niveau *',
+                            hintText: 'Ex: TERMINALE',
+                            prefixIcon: const Icon(Icons.layers, color: Color(0xFFFF6B35)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFFF6B35), width: 2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Filière
+                        TextField(
+                          controller: filiereCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Filière',
+                            hintText: 'Ex: Sciences',
+                            prefixIcon: const Icon(Icons.category, color: Color(0xFFFF6B35)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Color(0xFFFF6B35), width: 2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Row: Capacité + Année Scolaire
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: capaciteCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: 'Capacité max *',
+                                  hintText: '35',
+                                  prefixIcon: const Icon(Icons.people, color: Color(0xFFFF6B35)),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Color(0xFFFF6B35), width: 2),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: anneeScolaireCtrl,
+                                decoration: InputDecoration(
+                                  labelText: 'Année scolaire *',
+                                  hintText: '2025-2026',
+                                  prefixIcon: const Icon(Icons.calendar_today, color: Color(0xFFFF6B35)),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Color(0xFFFF6B35), width: 2),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        
+                        // Professeur Principal
+                        const Text(
+                          'Professeur Principal',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('utilisateurs')
+                              .where('role', isEqualTo: 'professeur')
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return const CircularProgressIndicator();
+                            }
+                            
+                            final profs = snapshot.data!.docs;
+                            
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String?>(
+                                  isExpanded: true,
+                                  value: selectedProfId,
+                                  hint: const Text('Sélectionner un professeur'),
+                                  items: [
+                                    const DropdownMenuItem<String?>(
+                                      value: null,
+                                      child: Text('Aucun'),
+                                    ),
+                                    ...profs.map((doc) {
+                                      final d = doc.data() as Map<String, dynamic>;
+                                      final name = '${d['prenom'] ?? ''} ${d['nom'] ?? ''}'.trim();
+                                      return DropdownMenuItem<String?>(
+                                        value: doc.id,
+                                        child: Text(name.isEmpty ? 'Sans nom' : name),
+                                      );
+                                    }),
+                                  ],
+                                  onChanged: (value) {
+                                    setDialogState(() {
+                                      selectedProfId = value;
+                                    });
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        
+                        // Élèves Section
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Élèves inscrits',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                            Text(
+                              '${selectedEleveIds.length} sélectionné${selectedEleveIds.length > 1 ? 's' : ''}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFFFF6B35),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Students List
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('utilisateurs')
+                              .where('role', isEqualTo: 'eleve')
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return const Center(child: CircularProgressIndicator());
+                            }
+                            
+                            final eleves = snapshot.data!.docs;
+                            
+                            if (eleves.isEmpty) {
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey.shade200),
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    'Aucun élève disponible.\nCréez des comptes élèves d\'abord.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            
+                            return Container(
+                              constraints: const BoxConstraints(maxHeight: 200),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: eleves.length,
+                                itemBuilder: (context, index) {
+                                  final doc = eleves[index];
+                                  final d = doc.data() as Map<String, dynamic>;
+                                  final prenom = d['prenom'] ?? '';
+                                  final nom = d['nom'] ?? '';
+                                  final email = d['email'] ?? '';
+                                  final fullName = '$prenom $nom'.trim();
+                                  final isSelected = selectedEleveIds.contains(doc.id);
+                                  
+                                  return CheckboxListTile(
+                                    value: isSelected,
+                                    onChanged: (checked) {
+                                      setDialogState(() {
+                                        if (checked == true) {
+                                          selectedEleveIds.add(doc.id);
+                                        } else {
+                                          selectedEleveIds.remove(doc.id);
+                                        }
+                                      });
+                                    },
+                                    title: Text(
+                                      fullName.isEmpty ? 'Sans nom' : fullName,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      email,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    secondary: CircleAvatar(
+                                      backgroundColor: const Color(0xFFFF6B35),
+                                      child: Text(
+                                        fullName.isNotEmpty ? fullName[0].toUpperCase() : 'E',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    activeColor: const Color(0xFFFF6B35),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: capaciteCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Capacité max',
-                  prefixIcon: Icon(Icons.people),
+                const SizedBox(height: 24),
+                
+                // Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: const BorderSide(color: Colors.grey),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Annuler'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (nomCtrl.text.trim().isEmpty || niveauCtrl.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Veuillez remplir tous les champs obligatoires'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          final classData = {
+                            'nom': nomCtrl.text.trim(),
+                            'niveau': niveauCtrl.text.trim(),
+                            'filiere': filiereCtrl.text.trim(),
+                            'anneeScolaire': anneeScolaireCtrl.text.trim(),
+                            'capaciteMax': int.tryParse(capaciteCtrl.text) ?? 35,
+                            'professeurPrincipalId': selectedProfId,
+                            'eleveIds': selectedEleveIds,
+                            'matiereIds': data?['matiereIds'] ?? [],
+                          };
+
+                          try {
+                            if (isEdit) {
+                              await FirebaseFirestore.instance
+                                  .collection('classes')
+                                  .doc(id)
+                                  .update(classData);
+                            } else {
+                              await FirebaseFirestore.instance
+                                  .collection('classes')
+                                  .add(classData);
+                            }
+                            
+                            if (ctx.mounted) Navigator.pop(ctx);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isEdit ? 'Classe modifiée avec succès ✓' : 'Classe créée avec succès ✓',
+                                  ),
+                                  backgroundColor: const Color(0xFF10B981),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Erreur: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: const Color(0xFFFF6B35),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(isEdit ? 'Modifier' : 'Créer'),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nomCtrl.text.isEmpty) return;
-
-              final classData = {
-                'nom': nomCtrl.text.trim(),
-                'niveau': niveauCtrl.text.trim(),
-                'filiere': '',
-                'anneeScolaire': '2025-2026',
-                'capaciteMax': int.tryParse(capaciteCtrl.text) ?? 35,
-                'professeurPrincipalId': null,
-                'eleveIds': data?['eleveIds'] ?? [],
-                'matiereIds': data?['matiereIds'] ?? [],
-              };
-
-              if (isEdit) {
-                await FirebaseFirestore.instance.collection('classes').doc(id).update(classData);
-              } else {
-                await FirebaseFirestore.instance.collection('classes').add(classData);
-              }
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(isEdit ? 'Classe modifiée ✓' : 'Classe créée ✓'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6B35)),
-            child: Text(isEdit ? 'Modifier' : 'Créer'),
-          ),
-        ],
       ),
     );
   }

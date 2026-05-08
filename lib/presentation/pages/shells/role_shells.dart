@@ -76,7 +76,7 @@ class _EleveShellState extends State<EleveShell> {
   }
 }
 
-/// Shell Professeur
+/// Shell Professeur - Redesigned with sidebar layout
 class ProfesseurShell extends StatefulWidget {
   const ProfesseurShell({super.key});
 
@@ -98,27 +98,295 @@ class _ProfesseurShellState extends State<ProfesseurShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _pages),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: AppStrings.classes,
+      body: Row(
+        children: [
+          _buildSidebar(),
+          Expanded(
+            child: Column(
+              children: [
+                _buildTopBar(),
+                Expanded(
+                  child: IndexedStack(
+                    index: _currentIndex,
+                    children: _pages,
+                  ),
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.grade),
-            label: AppStrings.saisieNotes,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebar() {
+    return Container(
+      width: 240,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(2, 0),
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.schedule), label: 'Emploi'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: AppStrings.messages,
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildLogo(),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                _buildMenuItem(
+                  icon: Icons.class_outlined,
+                  activeIcon: Icons.class_,
+                  label: 'Mes Classes',
+                  index: 0,
+                ),
+                _buildMenuItem(
+                  icon: Icons.grade_outlined,
+                  activeIcon: Icons.grade,
+                  label: 'Saisie Notes',
+                  index: 1,
+                ),
+                _buildMenuItem(
+                  icon: Icons.calendar_month_outlined,
+                  activeIcon: Icons.calendar_month,
+                  label: 'Emploi du Temps',
+                  index: 2,
+                ),
+                _buildMenuItem(
+                  icon: Icons.chat_outlined,
+                  activeIcon: Icons.chat,
+                  label: 'Messages',
+                  index: 3,
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Divider(),
+                ),
+                _buildMenuItem(
+                  icon: Icons.person_outline,
+                  activeIcon: Icons.person,
+                  label: 'Profil',
+                  index: 4,
+                ),
+              ],
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: AppStrings.profil,
+          _buildUserProfile(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLogo() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.school, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'EduLycée',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF10B981),
+                  ),
+                ),
+                Text(
+                  'Espace Professeur',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem({
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required int index,
+  }) {
+    final isActive = _currentIndex == index;
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _currentIndex = index),
+          borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isActive ? const Color(0xFF10B981).withOpacity(0.1) : null,
+              borderRadius: BorderRadius.circular(8),
+              border: isActive
+                  ? Border.all(color: const Color(0xFF10B981), width: 2)
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isActive ? activeIcon : icon,
+                  color: isActive ? const Color(0xFF10B981) : Colors.grey.shade600,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: isActive ? const Color(0xFF10B981) : Colors.grey.shade700,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserProfile() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: const Color(0xFF10B981),
+            child: const Text(
+              'P',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Professeur',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  'Enseignant',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.more_vert, size: 18, color: Colors.grey.shade600),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    final titles = [
+      'Mes Classes',
+      'Saisie des Notes',
+      'Emploi du Temps',
+      'Messages',
+      'Mon Profil',
+    ];
+
+    final subtitles = [
+      'Gérez vos cohortes et le suivi des effectifs',
+      'Enregistrez les notes de vos élèves',
+      'Consultez votre planning de cours',
+      'Communiquez avec vos collègues',
+      'Gérez vos informations personnelles',
+    ];
+
+    return Container(
+      height: 70,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titles[_currentIndex],
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  subtitles[_currentIndex],
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+            onPressed: () {},
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: Colors.white),
+            onPressed: () {},
           ),
         ],
       ),

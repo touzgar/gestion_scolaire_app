@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/auth/auth_state.dart';
 
@@ -13,593 +12,397 @@ class ProfSaisieNotesPage extends StatefulWidget {
 }
 
 class _ProfSaisieNotesPageState extends State<ProfSaisieNotesPage> {
+  String? _selectedClasseId;
+  String? _selectedClassName;
+  String? _selectedMatiere;
+  int _selectedTrimestre = 1;
+  String _searchQuery = '';
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Saisie des Notes'),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            child: IconButton(
-              icon: const Icon(Icons.info_outline),
-              onPressed: () => _showInfoDialog(context),
-            ),
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: Column(
+        children: [
+          _buildHeader(),
+          Expanded(
+            child: _selectedClasseId == null
+                ? _buildEmptyState()
+                : _buildStudentsList(),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddNoteDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Nouvelle note'),
-      ),
-      body: BlocBuilder<AuthBloc, AuthState>(
-        builder: (context, state) {
-          if (state is! AuthAuthenticated) return const SizedBox.shrink();
-          final profId = state.user.uid;
-
-          return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('notes')
-                .where('professeurId', isEqualTo: profId)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text(
-                    'Erreur: ${snapshot.error}',
-                    style: const TextStyle(color: AppColors.error),
-                  ),
-                );
-              }
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 90,
-                        height: 90,
-                        decoration: BoxDecoration(
-                          color: AppColors.accentOrange.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: const Icon(
-                          Icons.grade,
-                          size: 44,
-                          color: AppColors.accentOrange,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Aucune note saisie',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Appuyez sur + pour ajouter une note',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              // Sort by date descending in Dart
-              final docs = snapshot.data!.docs.toList()
-                ..sort((a, b) {
-                  final aDate =
-                      (a.data() as Map<String, dynamic>)['date'] as Timestamp?;
-                  final bDate =
-                      (b.data() as Map<String, dynamic>)['date'] as Timestamp?;
-                  if (aDate == null || bDate == null) return 0;
-                  return bDate.compareTo(aDate);
-                });
-
-              return ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-                itemCount: docs.length,
-                itemBuilder: (context, index) {
-                  final doc = docs[index];
-                  final data = doc.data() as Map<String, dynamic>;
-                  return _NoteCard(
-                    data: data,
-                    onDelete: () => _confirmDelete(doc.id),
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
+      floatingActionButton: _selectedClasseId != null
+          ? FloatingActionButton(
+              onPressed: () {
+                // Show dialog to select student first
+                _showSelectStudentDialog();
+              },
+              backgroundColor: const Color(0xFFFF6B35),
+              child: const Icon(Icons.add, size: 28),
+            )
+          : null,
     );
   }
 
-  void _showInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.info_outline, color: AppColors.primaryNavy),
-            SizedBox(width: 8),
-            Text('Guide de saisie'),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('1. Sélectionnez une classe'),
-            SizedBox(height: 4),
-            Text('2. Choisissez un élève de la classe'),
-            SizedBox(height: 4),
-            Text('3. Entrez la note, le coefficient et le type'),
-            SizedBox(height: 4),
-            Text('4. La note sera visible par l\'élève'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Compris'),
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 10,
+            offset: Offset(0, 2),
           ),
         ],
       ),
-    );
-  }
-
-  void _showAddNoteDialog(BuildContext context) {
-    final state = context.read<AuthBloc>().state;
-    if (state is! AuthAuthenticated) return;
-    final profId = state.user.uid;
-
-    final valeurCtrl = TextEditingController();
-    final coeffCtrl = TextEditingController(text: '1');
-    final commentaireCtrl = TextEditingController();
-    String selectedType = 'controle';
-    int selectedTrimestre = 1;
-    String? selectedClasseId;
-    String? selectedEleveId;
-    String? selectedEleveName;
-    String? selectedClassName;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.accentOrange.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.grade,
-                    color: AppColors.accentOrange,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text('Ajouter une note'),
-              ],
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title and Class Selector
+          Row(
+            children: [
+              Expanded(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ─── Step 1: Select class ───
                     const Text(
-                      '1. Sélectionner la classe',
+                      'Saisie des Notes',
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: AppColors.primaryNavy,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('classes')
-                          .snapshots(),
-                      builder: (context, snap) {
-                        if (snap.hasError) {
-                          return Text(
-                            'Erreur: ${snap.error}',
-                            style: const TextStyle(
-                              color: AppColors.error,
-                              fontSize: 12,
-                            ),
-                          );
-                        }
-                        if (!snap.hasData) {
-                          return const LinearProgressIndicator();
-                        }
-                        final classes = snap.data!.docs;
-                        if (classes.isEmpty) {
-                          return const Text(
-                            'Aucune classe disponible',
-                            style: TextStyle(color: AppColors.textSecondary),
-                          );
-                        }
-                        return DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          // ignore: deprecated_member_use
-                          value: selectedClasseId,
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.class_),
-                            hintText: 'Choisir une classe',
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                          ),
-                          items: classes.map((doc) {
-                            final d = doc.data() as Map<String, dynamic>;
-                            final label =
-                                '${d['nom'] ?? ''} (${d['niveau'] ?? ''})';
-                            return DropdownMenuItem<String>(
-                              value: doc.id,
-                              child: Text(label),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            setDialogState(() {
-                              selectedClasseId = val;
-                              selectedEleveId = null;
-                              selectedEleveName = null;
-                              if (val != null) {
-                                final doc = classes.firstWhere(
-                                  (d) => d.id == val,
-                                );
-                                final d = doc.data() as Map<String, dynamic>;
-                                selectedClassName = d['nom'] ?? '';
-                              }
-                            });
-                          },
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ─── Step 2: Select student from class ───
-                    const Text(
-                      '2. Sélectionner l\'élève',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: AppColors.primaryNavy,
+                    const SizedBox(height: 4),
+                    if (_selectedClassName != null)
+                      Text(
+                        '$_selectedClassName • ${_selectedMatiere ?? 'Toutes matières'} • T$_selectedTrimestre 2024',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (selectedClasseId == null)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              size: 16,
-                              color: AppColors.textSecondary,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Sélectionnez d\'abord une classe',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      StreamBuilder<DocumentSnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection('classes')
-                            .doc(selectedClasseId)
-                            .snapshots(),
-                        builder: (context, snap) {
-                          if (!snap.hasData || !snap.data!.exists) {
-                            return const LinearProgressIndicator();
-                          }
-                          final classData =
-                              snap.data!.data() as Map<String, dynamic>;
-                          final eleveIds = List<String>.from(
-                            classData['eleveIds'] ?? [],
-                          );
-
-                          if (eleveIds.isEmpty) {
-                            return Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.warning.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(
-                                    Icons.warning_amber,
-                                    size: 16,
-                                    color: AppColors.warning,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Aucun élève dans cette classe',
-                                    style: TextStyle(
-                                      color: AppColors.warning,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-
-                          return FutureBuilder<List<DocumentSnapshot>>(
-                            future: _fetchStudentsByIds(eleveIds),
-                            builder: (context, studentsSnap) {
-                              if (!studentsSnap.hasData) {
-                                return const LinearProgressIndicator();
-                              }
-                              final students = studentsSnap.data!;
-                              return DropdownButtonFormField<String>(
-                                isExpanded: true,
-                                // ignore: deprecated_member_use
-                                value: selectedEleveId,
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(Icons.person),
-                                  hintText: 'Choisir un élève',
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                ),
-                                items: students.map((doc) {
-                                  final d = doc.data() as Map<String, dynamic>;
-                                  final name =
-                                      '${d['prenom'] ?? ''} ${d['nom'] ?? ''}';
-                                  return DropdownMenuItem<String>(
-                                    value: doc.id,
-                                    child: Text(name),
-                                  );
-                                }).toList(),
-                                onChanged: (val) {
-                                  setDialogState(() {
-                                    selectedEleveId = val;
-                                    if (val != null) {
-                                      final s = students.firstWhere(
-                                        (d) => d.id == val,
-                                      );
-                                      final d =
-                                          s.data() as Map<String, dynamic>;
-                                      selectedEleveName =
-                                          '${d['prenom']} ${d['nom']}';
-                                    }
-                                  });
-                                },
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 8),
-
-                    // ─── Step 3: Note details ───
-                    const Text(
-                      '3. Détails de la note',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: AppColors.primaryNavy,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: TextField(
-                            controller: valeurCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Note (/20)',
-                              prefixIcon: Icon(Icons.grade),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: coeffCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Coeff.',
-                              prefixIcon: Icon(Icons.balance),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            // ignore: deprecated_member_use
-                            value: selectedType,
-                            decoration: const InputDecoration(
-                              labelText: 'Type',
-                              prefixIcon: Icon(Icons.category),
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'controle',
-                                child: Text('Contrôle'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'devoir',
-                                child: Text('Devoir'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'examen',
-                                child: Text('Examen'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'oral',
-                                child: Text('Oral'),
-                              ),
-                              DropdownMenuItem(value: 'tp', child: Text('TP')),
-                              DropdownMenuItem(
-                                value: 'projet',
-                                child: Text('Projet'),
-                              ),
-                            ],
-                            onChanged: (v) {
-                              if (v != null) {
-                                setDialogState(() => selectedType = v);
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: DropdownButtonFormField<int>(
-                            // ignore: deprecated_member_use
-                            value: selectedTrimestre,
-                            decoration: const InputDecoration(
-                              labelText: 'Trim.',
-                              prefixIcon: Icon(Icons.date_range),
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                            ),
-                            items: const [
-                              DropdownMenuItem(value: 1, child: Text('T1')),
-                              DropdownMenuItem(value: 2, child: Text('T2')),
-                              DropdownMenuItem(value: 3, child: Text('T3')),
-                            ],
-                            onChanged: (v) {
-                              if (v != null) {
-                                setDialogState(() => selectedTrimestre = v);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: commentaireCtrl,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Commentaire (optionnel)',
-                        prefixIcon: Icon(Icons.comment),
-                      ),
-                    ),
                   ],
                 ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Annuler'),
-              ),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.save, size: 18),
-                label: const Text('Ajouter'),
-                onPressed: () async {
-                  final valeur = double.tryParse(valeurCtrl.text);
-                  if (valeur == null || valeur < 0 || valeur > 20) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Entrez une note valide (0 - 20)'),
-                        backgroundColor: AppColors.error,
+              // Filters and Export buttons
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _showFiltersDialog(),
+                    icon: const Icon(Icons.filter_list, size: 18),
+                    label: const Text('Filters'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    );
-                    return;
-                  }
-                  if (selectedEleveId == null || selectedClasseId == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Sélectionnez une classe et un élève'),
-                        backgroundColor: AppColors.error,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _exportGrades(),
+                    icon: const Icon(Icons.download, size: 18),
+                    label: const Text('Export'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    );
-                    return;
-                  }
-                  final coeff = double.tryParse(coeffCtrl.text) ?? 1;
-
-                  await FirebaseFirestore.instance.collection('notes').add({
-                    'eleveId': selectedEleveId,
-                    'eleveName': selectedEleveName ?? '',
-                    'classeId': selectedClasseId,
-                    'className': selectedClassName ?? '',
-                    'matiereId': '',
-                    'professeurId': profId,
-                    'valeur': valeur,
-                    'coefficient': coeff,
-                    'typeEvaluation': selectedType,
-                    'commentaire': commentaireCtrl.text.trim(),
-                    'date': Timestamp.now(),
-                    'trimestre': selectedTrimestre,
-                    'anneeScolaire': '2025-2026',
-                  });
-                  if (ctx.mounted) Navigator.pop(ctx);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Note ajoutée avec succès ✓'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                  }
-                },
+                    ),
+                  ),
+                ],
               ),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 16),
+          
+          // Class Selector
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('classes').snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const SizedBox(height: 50, child: Center(child: CircularProgressIndicator()));
+              }
+              
+              final classes = snapshot.data!.docs;
+              
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white,
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: _selectedClasseId,
+                    hint: const Text('Select a class to view students'),
+                    items: classes.map((doc) {
+                      final d = doc.data() as Map<String, dynamic>;
+                      final label = '${d['nom'] ?? ''} (${d['niveau'] ?? ''})';
+                      return DropdownMenuItem<String>(
+                        value: doc.id,
+                        child: Text(label),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        final doc = classes.firstWhere((d) => d.id == val);
+                        final d = doc.data() as Map<String, dynamic>;
+                        setState(() {
+                          _selectedClasseId = val;
+                          _selectedClassName = d['nom'] ?? '';
+                        });
+                      }
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Icon(
+              Icons.grade,
+              size: 50,
+              color: Color(0xFF10B981),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Select a class to start',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Choose a class from the dropdown above',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudentsList() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('classes')
+          .doc(_selectedClasseId)
+          .snapshots(),
+      builder: (context, classSnap) {
+        if (!classSnap.hasData || !classSnap.data!.exists) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final classData = classSnap.data!.data() as Map<String, dynamic>;
+        final eleveIds = List<String>.from(classData['eleveIds'] ?? []);
+
+        if (eleveIds.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.people_outline, size: 64, color: Colors.grey.shade300),
+                const SizedBox(height: 16),
+                const Text(
+                  'No students in this class',
+                  style: TextStyle(fontSize: 16, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return FutureBuilder<List<DocumentSnapshot>>(
+          future: _fetchStudentsByIds(eleveIds),
+          builder: (context, studentsSnap) {
+            if (!studentsSnap.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final students = studentsSnap.data!;
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('notes')
+                  .where('classeId', isEqualTo: _selectedClasseId)
+                  .where('trimestre', isEqualTo: _selectedTrimestre)
+                  .snapshots(),
+              builder: (context, notesSnap) {
+                final notes = notesSnap.data?.docs ?? [];
+
+                // Calculate statistics
+                final stats = _calculateStats(students, notes);
+
+                return Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: students.length,
+                        itemBuilder: (context, index) {
+                          final student = students[index];
+                          final studentData = student.data() as Map<String, dynamic>;
+                          final studentNotes = notes.where((n) {
+                            final d = n.data() as Map<String, dynamic>;
+                            return d['eleveId'] == student.id;
+                          }).toList();
+
+                          return _StudentCard(
+                            studentId: student.id,
+                            studentData: studentData,
+                            notes: studentNotes,
+                            onAddNote: () => _showAddNoteDialog(student.id, studentData),
+                          );
+                        },
+                      ),
+                    ),
+                    _buildClassInsights(stats, students.length),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildClassInsights(Map<String, dynamic> stats, int totalStudents) {
+    final participation = stats['participation'] as double;
+    final classAvg = stats['classAvg'] as double;
+    final completedCount = stats['completedCount'] as int;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E3A5F), Color(0xFF2D4A6F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E3A5F).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Class Insights',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _InsightItem(
+                  label: 'Participation',
+                  value: '${participation.toStringAsFixed(0)}%',
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 40,
+                color: Colors.white.withOpacity(0.2),
+              ),
+              Expanded(
+                child: _InsightItem(
+                  label: 'Class Avg',
+                  value: classAvg.toStringAsFixed(1),
+                ),
+              ),
+              Container(
+                width: 1,
+                height: 40,
+                color: Colors.white.withOpacity(0.2),
+              ),
+              Expanded(
+                child: _InsightItem(
+                  label: 'Entries',
+                  value: '$completedCount/$totalStudents',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: participation / 100,
+              minHeight: 6,
+              backgroundColor: Colors.white.withOpacity(0.2),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFF6B35)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Map<String, dynamic> _calculateStats(List<DocumentSnapshot> students, List<QueryDocumentSnapshot> notes) {
+    if (students.isEmpty) {
+      return {'participation': 0.0, 'classAvg': 0.0, 'completedCount': 0};
+    }
+
+    final studentsWithNotes = <String>{};
+    double totalScore = 0;
+    int totalNotes = 0;
+
+    for (final note in notes) {
+      final d = note.data() as Map<String, dynamic>;
+      studentsWithNotes.add(d['eleveId'] ?? '');
+      totalScore += (d['valeur'] as num?)?.toDouble() ?? 0;
+      totalNotes++;
+    }
+
+    final participation = (studentsWithNotes.length / students.length * 100);
+    final classAvg = totalNotes > 0 ? totalScore / totalNotes : 0.0;
+
+    return {
+      'participation': participation,
+      'classAvg': classAvg,
+      'completedCount': studentsWithNotes.length,
+    };
   }
 
   Future<List<DocumentSnapshot>> _fetchStudentsByIds(List<String> ids) async {
@@ -613,7 +416,6 @@ class _ProfSaisieNotesPageState extends State<ProfSaisieNotesPage> {
           .get();
       results.addAll(snap.docs);
     }
-    // Sort alphabetically
     results.sort((a, b) {
       final aN = (a.data() as Map<String, dynamic>)['nom'] ?? '';
       final bN = (b.data() as Map<String, dynamic>)['nom'] ?? '';
@@ -622,236 +424,527 @@ class _ProfSaisieNotesPageState extends State<ProfSaisieNotesPage> {
     return results;
   }
 
-  Future<void> _confirmDelete(String noteId) async {
-    final confirm = await showDialog<bool>(
+  void _showFiltersDialog() {
+    showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Filters'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                value: _selectedTrimestre,
+                decoration: const InputDecoration(
+                  labelText: 'Trimestre',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text('Trimestre 1')),
+                  DropdownMenuItem(value: 2, child: Text('Trimestre 2')),
+                  DropdownMenuItem(value: 3, child: Text('Trimestre 3')),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    setDialogState(() => _selectedTrimestre = v);
+                  }
+                },
               ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: AppColors.error,
-                size: 22,
-              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
             ),
-            const SizedBox(width: 12),
-            const Text('Supprimer la note'),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {});
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+              ),
+              child: const Text('Apply'),
+            ),
           ],
         ),
-        content: const Text('Voulez-vous vraiment supprimer cette note ?'),
+      ),
+    );
+  }
+
+  void _showAddNoteDialog(String studentId, Map<String, dynamic> studentData) {
+    final state = context.read<AuthBloc>().state;
+    if (state is! AuthAuthenticated) return;
+    final profId = state.user.uid;
+
+    final valeurCtrl = TextEditingController();
+    final coeffCtrl = TextEditingController(text: '1');
+    final commentaireCtrl = TextEditingController();
+    String selectedType = 'controle';
+
+    final studentName = '${studentData['prenom'] ?? ''} ${studentData['nom'] ?? ''}'.trim();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.grade, color: Color(0xFF10B981), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Add Grade', style: TextStyle(fontSize: 18)),
+                    Text(
+                      studentName,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.normal, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: valeurCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Score /20',
+                          prefixIcon: Icon(Icons.grade),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: coeffCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Coeff.',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  decoration: const InputDecoration(
+                    labelText: 'Type',
+                    prefixIcon: Icon(Icons.category),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'controle', child: Text('Contrôle')),
+                    DropdownMenuItem(value: 'devoir', child: Text('Devoir')),
+                    DropdownMenuItem(value: 'examen', child: Text('Examen')),
+                    DropdownMenuItem(value: 'oral', child: Text('Oral')),
+                    DropdownMenuItem(value: 'tp', child: Text('TP')),
+                    DropdownMenuItem(value: 'projet', child: Text('Projet')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => selectedType = v);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: commentaireCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Comment (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final valeur = double.tryParse(valeurCtrl.text);
+                if (valeur == null || valeur < 0 || valeur > 20) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Enter a valid score (0 - 20)'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                final coeff = double.tryParse(coeffCtrl.text) ?? 1;
+
+                await FirebaseFirestore.instance.collection('notes').add({
+                  'eleveId': studentId,
+                  'eleveName': studentName,
+                  'classeId': _selectedClasseId,
+                  'className': _selectedClassName ?? '',
+                  'matiereId': _selectedMatiere ?? '',
+                  'professeurId': profId,
+                  'valeur': valeur,
+                  'coefficient': coeff,
+                  'typeEvaluation': selectedType,
+                  'commentaire': commentaireCtrl.text.trim(),
+                  'date': Timestamp.now(),
+                  'trimestre': _selectedTrimestre,
+                  'anneeScolaire': '2025-2026',
+                });
+
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Grade added successfully ✓'),
+                      backgroundColor: Color(0xFF10B981),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+              ),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSelectStudentDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Select Student'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('classes')
+                .doc(_selectedClasseId)
+                .snapshots(),
+            builder: (context, classSnap) {
+              if (!classSnap.hasData || !classSnap.data!.exists) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final classData = classSnap.data!.data() as Map<String, dynamic>;
+              final eleveIds = List<String>.from(classData['eleveIds'] ?? []);
+
+              return FutureBuilder<List<DocumentSnapshot>>(
+                future: _fetchStudentsByIds(eleveIds),
+                builder: (context, studentsSnap) {
+                  if (!studentsSnap.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final students = studentsSnap.data!;
+
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: students.length,
+                    itemBuilder: (context, index) {
+                      final student = students[index];
+                      final studentData = student.data() as Map<String, dynamic>;
+                      final prenom = studentData['prenom'] ?? '';
+                      final nom = studentData['nom'] ?? '';
+                      final fullName = '$prenom $nom'.trim();
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFF1E3A5F),
+                          child: Text(
+                            '${prenom.isNotEmpty ? prenom[0] : ''}${nom.isNotEmpty ? nom[0] : ''}'.toUpperCase(),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        title: Text(fullName),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _showAddNoteDialog(student.id, studentData);
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Supprimer'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
           ),
         ],
       ),
     );
-    if (confirm == true) {
-      await FirebaseFirestore.instance.collection('notes').doc(noteId).delete();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Note supprimée'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    }
   }
 }
 
-// ─── Note Card Widget ───
-class _NoteCard extends StatelessWidget {
-  final Map<String, dynamic> data;
-  final VoidCallback onDelete;
+class _InsightItem extends StatelessWidget {
+  final String label;
+  final String value;
 
-  const _NoteCard({required this.data, required this.onDelete});
+  const _InsightItem({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    final valeur = (data['valeur'] as num?)?.toDouble() ?? 0;
-    final type = data['typeEvaluation'] ?? 'controle';
-    final coeff = (data['coefficient'] as num?)?.toDouble() ?? 1;
-    final trimestre = data['trimestre'] ?? 1;
-    final date = (data['date'] as Timestamp?)?.toDate();
-    final eleveName = data['eleveName'] ?? '';
-    final className = data['className'] ?? '';
-    final commentaire = data['commentaire'] ?? '';
-    final color = AppColors.getNoteColor(valeur);
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.white.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+class _StudentCard extends StatelessWidget {
+  final String studentId;
+  final Map<String, dynamic> studentData;
+  final List<QueryDocumentSnapshot> notes;
+  final VoidCallback onAddNote;
+
+  const _StudentCard({
+    required this.studentId,
+    required this.studentData,
+    required this.notes,
+    required this.onAddNote,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final prenom = studentData['prenom'] ?? '';
+    final nom = studentData['nom'] ?? '';
+    final fullName = '$prenom $nom'.trim();
+    final initials = '${prenom.isNotEmpty ? prenom[0] : ''}${nom.isNotEmpty ? nom[0] : ''}'.toUpperCase();
+
+    // Calculate average
+    double totalScore = 0;
+    double totalCoeff = 0;
+    for (final note in notes) {
+      final d = note.data() as Map<String, dynamic>;
+      final valeur = (d['valeur'] as num?)?.toDouble() ?? 0;
+      final coeff = (d['coefficient'] as num?)?.toDouble() ?? 1;
+      totalScore += valeur * coeff;
+      totalCoeff += coeff;
+    }
+    final average = totalCoeff > 0 ? totalScore / totalCoeff : 0.0;
+    final hasNotes = notes.isNotEmpty;
+
+    // Status
+    final status = hasNotes ? 'COMPLETED' : 'PENDING';
+    final statusColor = hasNotes ? const Color(0xFF10B981) : const Color(0xFFFF6B35);
+
+    return InkWell(
+      onTap: onAddNote,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 10,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
         child: Row(
           children: [
-            // Note badge
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [color, color.withValues(alpha: 0.7)],
-                ),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: Text(
-                  valeur.toStringAsFixed(1),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    fontSize: 18,
-                  ),
+            // Avatar
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: const Color(0xFF1E3A5F),
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
+            
+            // Student Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (eleveName.isNotEmpty)
-                    Text(
-                      eleveName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryNavy.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
+                      Expanded(
                         child: Text(
-                          _typeLabel(type),
+                          fullName.isEmpty ? 'Student' : fullName,
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.primaryNavy,
+                            color: Color(0xFF1E293B),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Coeff. $coeff',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'T$trimestre',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              hasNotes ? Icons.check_circle : Icons.pending,
+                              size: 12,
+                              color: statusColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              status,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: statusColor,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (className.isNotEmpty) ...[
-                        Icon(
-                          Icons.class_,
-                          size: 12,
-                          color: AppColors.textSecondary.withValues(alpha: 0.6),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          className,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary.withValues(
-                              alpha: 0.7,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      if (date != null)
-                        Text(
-                          '${date.day}/${date.month}/${date.year}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (commentaire.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        commentaire,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontStyle: FontStyle.italic,
-                          color: AppColors.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  Text(
+                    'ID: #ST-${studentId.substring(0, 4).toUpperCase()}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
                     ),
+                  ),
                 ],
               ),
             ),
-            IconButton(
-              icon: const Icon(
-                Icons.delete_outline,
-                color: AppColors.error,
-                size: 20,
-              ),
-              onPressed: onDelete,
+            const SizedBox(width: 16),
+            
+            // Score Section
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text(
+                  'Score /20',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (hasNotes)
+                  Text(
+                    average.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFE2E8F0), style: BorderStyle.solid),
+                    ),
+                    child: const Text(
+                      '--',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            
+            // Average Section
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text(
+                  'Average',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (hasNotes)
+                  Text(
+                    average.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF64748B),
+                    ),
+                  )
+                else
+                  const Text(
+                    '--',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
       ),
     );
-  }
-
-  String _typeLabel(String type) {
-    switch (type) {
-      case 'controle':
-        return 'Contrôle';
-      case 'devoir':
-        return 'Devoir';
-      case 'examen':
-        return 'Examen';
-      case 'oral':
-        return 'Oral';
-      case 'tp':
-        return 'TP';
-      case 'projet':
-        return 'Projet';
-      default:
-        return type;
-    }
   }
 }

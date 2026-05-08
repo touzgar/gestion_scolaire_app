@@ -476,8 +476,9 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage> {
                                             final cIdx = docs.indexOf(doc);
                                             final color = colors[cIdx % colors.length];
 
-                                            return GestureDetector(
+                                            return InkWell(
                                               onTap: () => _showEditCreneauDialog(doc.id, d),
+                                              onLongPress: () => _showSessionMenu(context, doc.id, d),
                                               child: Container(
                                                 width: double.infinity,
                                                 padding: const EdgeInsets.all(8),
@@ -487,43 +488,88 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage> {
                                                       : color,
                                                   borderRadius: BorderRadius.circular(8),
                                                 ),
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                child: Stack(
                                                   children: [
-                                                    Text(
-                                                      matiere,
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        fontWeight: FontWeight.w700,
-                                                        color: Colors.white,
-                                                        decoration: estAnnule ? TextDecoration.lineThrough : null,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
+                                                    Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          matiere,
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.w700,
+                                                            color: Colors.white,
+                                                            decoration: estAnnule ? TextDecoration.lineThrough : null,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                        if (salle.isNotEmpty) ...[
+                                                          const SizedBox(height: 2),
+                                                          Text(
+                                                            '📍 $salle',
+                                                            style: const TextStyle(
+                                                              fontSize: 9,
+                                                              color: Colors.white70,
+                                                            ),
+                                                            maxLines: 1,
+                                                          ),
+                                                        ],
+                                                        if (prof.isNotEmpty) ...[
+                                                          const SizedBox(height: 2),
+                                                          Text(
+                                                            '👤 $prof',
+                                                            style: const TextStyle(
+                                                              fontSize: 9,
+                                                              color: Colors.white70,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ],
+                                                      ],
                                                     ),
-                                                    if (salle.isNotEmpty) ...[
-                                                      const SizedBox(height: 2),
-                                                      Text(
-                                                        '📍 $salle',
-                                                        style: const TextStyle(
-                                                          fontSize: 9,
-                                                          color: Colors.white70,
+                                                    Positioned(
+                                                      top: 0,
+                                                      right: 0,
+                                                      child: PopupMenuButton<String>(
+                                                        icon: const Icon(
+                                                          Icons.more_vert,
+                                                          size: 14,
+                                                          color: Colors.white,
                                                         ),
-                                                        maxLines: 1,
+                                                        padding: EdgeInsets.zero,
+                                                        onSelected: (value) {
+                                                          if (value == 'edit') {
+                                                            _showEditCreneauDialog(doc.id, d);
+                                                          } else if (value == 'delete') {
+                                                            _confirmDelete(doc.id);
+                                                          }
+                                                        },
+                                                        itemBuilder: (context) => [
+                                                          const PopupMenuItem(
+                                                            value: 'edit',
+                                                            child: Row(
+                                                              children: [
+                                                                Icon(Icons.edit, size: 16, color: Color(0xFF3B82F6)),
+                                                                SizedBox(width: 8),
+                                                                Text('Edit'),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const PopupMenuItem(
+                                                            value: 'delete',
+                                                            child: Row(
+                                                              children: [
+                                                                Icon(Icons.delete, size: 16, color: Colors.red),
+                                                                SizedBox(width: 8),
+                                                                Text('Delete'),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ],
                                                       ),
-                                                    ],
-                                                    if (prof.isNotEmpty) ...[
-                                                      const SizedBox(height: 2),
-                                                      Text(
-                                                        '👤 $prof',
-                                                        style: const TextStyle(
-                                                          fontSize: 9,
-                                                          color: Colors.white70,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                    ],
+                                                    ),
                                                   ],
                                                 ),
                                               ),
@@ -851,15 +897,43 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage> {
                     StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('salles')
-                          .where('disponible', isEqualTo: true)
-                          .orderBy('nom')
                           .snapshots(),
                       builder: (context, snap) {
-                        if (!snap.hasData) return const LinearProgressIndicator();
+                        if (!snap.hasData) {
+                          return const SizedBox(
+                            height: 50,
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        
                         final sallesDocs = snap.data!.docs;
+                        
+                        if (sallesDocs.isEmpty) {
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'No rooms available. Create rooms first.',
+                                    style: TextStyle(fontSize: 12, color: Colors.orange),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        
                         return DropdownButtonFormField<String>(
                           isExpanded: true,
-                          value: salleCtrl.text.isNotEmpty ? salleCtrl.text : null,
+                          value: null,
                           decoration: const InputDecoration(
                             labelText: 'Room (optional)',
                             prefixIcon: Icon(Icons.meeting_room),
@@ -867,12 +941,17 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage> {
                             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           ),
                           items: [
-                            const DropdownMenuItem<String>(value: '', child: Text('— None —')),
+                            const DropdownMenuItem<String>(
+                              value: '',
+                              child: Text('— None —'),
+                            ),
                             ...sallesDocs.map((doc) {
                               final d = doc.data() as Map<String, dynamic>;
+                              final nom = d['nom'] ?? 'Room ${doc.id}';
+                              final capacite = d['capacite'] ?? 0;
                               return DropdownMenuItem<String>(
-                                value: d['nom'] ?? doc.id,
-                                child: Text('${d['nom']} (${d['capacite']} seats)'),
+                                value: nom,
+                                child: Text('$nom${capacite > 0 ? ' ($capacite seats)' : ''}'),
                               );
                             }),
                           ],
@@ -1121,17 +1200,45 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage> {
                     StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('salles')
-                          .where('disponible', isEqualTo: true)
-                          .orderBy('nom')
                           .snapshots(),
                       builder: (context, snap) {
-                        if (!snap.hasData) return const LinearProgressIndicator();
+                        if (!snap.hasData) {
+                          return const SizedBox(
+                            height: 50,
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        
                         final sallesDocs = snap.data!.docs;
-                        final validValues = sallesDocs.map((d) => (d.data() as Map<String, dynamic>)['nom'] ?? d.id).toSet();
-                        final currentVal = validValues.contains(salleCtrl.text) ? salleCtrl.text : null;
+                        
+                        if (sallesDocs.isEmpty) {
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Aucune salle disponible. Créez des salles d\'abord.',
+                                    style: TextStyle(fontSize: 12, color: Colors.orange),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        
+                        final currentSalle = salleCtrl.text.trim();
+                        
                         return DropdownButtonFormField<String>(
                           isExpanded: true,
-                          value: (currentVal != null && currentVal.isNotEmpty) ? currentVal : null,
+                          value: currentSalle.isEmpty ? '' : currentSalle,
                           decoration: const InputDecoration(
                             labelText: 'Salle (optionnel)',
                             prefixIcon: Icon(Icons.meeting_room),
@@ -1139,12 +1246,17 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage> {
                             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           ),
                           items: [
-                            const DropdownMenuItem<String>(value: '', child: Text('— Aucune —')),
+                            const DropdownMenuItem<String>(
+                              value: '',
+                              child: Text('— Aucune —'),
+                            ),
                             ...sallesDocs.map((doc) {
                               final d = doc.data() as Map<String, dynamic>;
+                              final nom = d['nom'] ?? 'Salle ${doc.id}';
+                              final capacite = d['capacite'] ?? 0;
                               return DropdownMenuItem<String>(
-                                value: d['nom'] ?? doc.id,
-                                child: Text('${d['nom']} (${d['capacite']} pl.)'),
+                                value: nom,
+                                child: Text('$nom${capacite > 0 ? ' ($capacite pl.)' : ''}'),
                               );
                             }),
                           ],
@@ -1215,6 +1327,58 @@ class _AdminEmploiTempsPageState extends State<AdminEmploiTempsPage> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  // ─── Show session menu ───
+  void _showSessionMenu(BuildContext context, String docId, Map<String, dynamic> data) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              data['matiere'] ?? 'Session',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.edit, color: Color(0xFF3B82F6)),
+              title: const Text('Edit'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showEditCreneauDialog(docId, data);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Delete'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDelete(docId);
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
       ),
     );
   }
