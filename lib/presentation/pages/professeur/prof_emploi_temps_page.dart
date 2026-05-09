@@ -34,24 +34,25 @@ class _ProfEmploiTempsPageState extends State<ProfEmploiTempsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF5F7FA),
-      child: Column(
-        children: [
-          _buildHeader(),
-          _buildTrimesterSelector(),
-          _buildMonthCalendar(),
-          Expanded(
-            child: BlocBuilder<AuthBloc, AuthState>(
-              builder: (context, state) {
-                if (state is! AuthAuthenticated) return const SizedBox.shrink();
-                final profId = state.user.uid;
-                return _buildScheduleContent(profId);
-              },
-            ),
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        if (state is! AuthAuthenticated) return const SizedBox.shrink();
+        final profId = state.user.uid;
+        
+        return Container(
+          color: const Color(0xFFF5F7FA),
+          child: Column(
+            children: [
+              _buildHeader(),
+              _buildTrimesterSelector(),
+              _buildMonthCalendar(),
+              Expanded(
+                child: _buildScheduleContent(profId),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -223,89 +224,158 @@ class _ProfEmploiTempsPageState extends State<ProfEmploiTempsPage> {
     final totalCells = firstWeekday - 1 + daysInMonth;
     final rows = (totalCells / 7).ceil();
 
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Day headers
-          Row(
-            children: List.generate(7, (index) {
-              return Expanded(
-                child: Center(
-                  child: Text(
-                    _joursShort[index],
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 8),
-          // Calendar grid
-          ...List.generate(rows, (rowIndex) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                children: List.generate(7, (colIndex) {
-                  final cellIndex = rowIndex * 7 + colIndex;
-                  final dayNumber = cellIndex - (firstWeekday - 2);
-                  
-                  if (dayNumber < 1 || dayNumber > daysInMonth) {
-                    return const Expanded(child: SizedBox(height: 40));
-                  }
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        if (state is! AuthAuthenticated) return const SizedBox.shrink();
+        final profId = state.user.uid;
 
-                  final date = DateTime(_currentMonth.year, _currentMonth.month, dayNumber);
-                  final isSelected = _isSameDay(date, _selectedDate);
-                  final isToday = _isSameDay(date, today);
-                  final isWeekend = date.weekday == 7; // Sunday
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('emploi_du_temps')
+              .where('professeurId', isEqualTo: profId)
+              .snapshots(),
+          builder: (context, snapshot) {
+            final allSessions = snapshot.data?.docs ?? [];
+            
+            // Group sessions by date
+            Map<String, List<Map<String, dynamic>>> sessionsByDay = {};
+            for (var doc in allSessions) {
+              final data = doc.data() as Map<String, dynamic>;
+              final jour = data['jour'] ?? '';
+              if (!sessionsByDay.containsKey(jour)) {
+                sessionsByDay[jour] = [];
+              }
+              sessionsByDay[jour]!.add(data);
+            }
 
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedDate = date),
-                      child: Container(
-                        height: 40,
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        decoration: BoxDecoration(
-                          color: isSelected 
-                              ? const Color(0xFF10B981)
-                              : isToday
-                                  ? const Color(0xFF10B981).withValues(alpha: 0.1)
-                                  : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          border: isToday && !isSelected
-                              ? Border.all(color: const Color(0xFF10B981), width: 2)
-                              : null,
-                        ),
+            return Container(
+              color: Colors.white,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // Day headers
+                  Row(
+                    children: List.generate(7, (index) {
+                      return Expanded(
                         child: Center(
                           child: Text(
-                            '$dayNumber',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected
-                                  ? Colors.white
-                                  : isToday
-                                      ? const Color(0xFF10B981)
-                                      : isWeekend
-                                          ? const Color(0xFF94A3B8)
-                                          : const Color(0xFF1E293B),
+                            _joursShort[index],
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF64748B),
                             ),
                           ),
                         ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  // Calendar grid
+                  ...List.generate(rows, (rowIndex) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: List.generate(7, (colIndex) {
+                          final cellIndex = rowIndex * 7 + colIndex;
+                          final dayNumber = cellIndex - (firstWeekday - 2);
+                          
+                          if (dayNumber < 1 || dayNumber > daysInMonth) {
+                            return const Expanded(child: SizedBox(height: 50));
+                          }
+
+                          final date = DateTime(_currentMonth.year, _currentMonth.month, dayNumber);
+                          final isSelected = _isSameDay(date, _selectedDate);
+                          final isToday = _isSameDay(date, today);
+                          final isWeekend = date.weekday == 7; // Sunday
+                          
+                          // Get sessions for this day
+                          final dayKey = _joursKeys[date.weekday - 1];
+                          final daySessions = sessionsByDay[dayKey] ?? [];
+                          final sessionCount = daySessions.length;
+
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(() => _selectedDate = date),
+                              child: Container(
+                                height: 50,
+                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                decoration: BoxDecoration(
+                                  color: isSelected 
+                                      ? const Color(0xFF10B981)
+                                      : isToday
+                                          ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                                          : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isToday && !isSelected
+                                        ? const Color(0xFF10B981)
+                                        : const Color(0xFFE2E8F0),
+                                    width: isToday && !isSelected ? 2 : 1,
+                                  ),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    // Day number
+                                    Positioned(
+                                      top: 4,
+                                      left: 4,
+                                      child: Text(
+                                        '$dayNumber',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : isToday
+                                                  ? const Color(0xFF10B981)
+                                                  : isWeekend
+                                                      ? const Color(0xFF94A3B8)
+                                                      : const Color(0xFF1E293B),
+                                        ),
+                                      ),
+                                    ),
+                                    // Session count badge
+                                    if (sessionCount > 0)
+                                      Positioned(
+                                        bottom: 4,
+                                        right: 4,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: isSelected 
+                                                ? Colors.white
+                                                : const Color(0xFF10B981),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: Text(
+                                            '$sessionCount',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: isSelected 
+                                                  ? const Color(0xFF10B981)
+                                                  : Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }),
+                ],
               ),
             );
-          }),
-        ],
-      ),
+          },
+        );
+      },
     );
   }
 
@@ -314,148 +384,164 @@ class _ProfEmploiTempsPageState extends State<ProfEmploiTempsPage> {
     int weekdayIndex = _selectedDate.weekday - 1; // 0-6 (lundi-dimanche)
     final selectedDayKey = _joursKeys[weekdayIndex];
 
-    return Column(
-      children: [
-        // Debug info card
-        Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.shade200),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Debug Info:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade900)),
-              Text('Date: $_selectedDate', style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
-              Text('Weekday: ${_selectedDate.weekday}', style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
-              Text('Day key: $selectedDayKey', style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
-              Text('Prof ID: $profId', style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
-            ],
-          ),
-        ),
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('emploi_du_temps')
+          .where('jour', isEqualTo: selectedDayKey)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)));
+        }
+
+        final allDocs = snapshot.data?.docs ?? [];
         
-        Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('emploi_du_temps')
-                .where('jour', isEqualTo: selectedDayKey)
-                .snapshots(), // Remove professeurId filter temporarily for debugging
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+        // Filter by professeurId manually
+        final docs = allDocs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['professeurId'] == profId;
+        }).toList();
 
-              final allDocs = snapshot.data?.docs ?? [];
-              
-              // Filter by professeurId manually to see all docs first
-              final docs = allDocs.where((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                return data['professeurId'] == profId;
-              }).toList();
+        // Sort by heureDebut
+        docs.sort((a, b) {
+          final aH = (a.data() as Map<String, dynamic>)['heureDebut'] ?? '';
+          final bH = (b.data() as Map<String, dynamic>)['heureDebut'] ?? '';
+          return aH.toString().compareTo(bH.toString());
+        });
 
-              print('Selected date: $_selectedDate');
-              print('Weekday: ${_selectedDate.weekday}');
-              print('Selected day key: $selectedDayKey');
-              print('Total docs for day: ${allDocs.length}');
-              print('Docs for this prof: ${docs.length}');
-              if (allDocs.isNotEmpty) {
-                print('Sample doc: ${(allDocs.first.data() as Map<String, dynamic>)}');
-              }
+        if (docs.isEmpty) {
+          return _buildEmptyState();
+        }
 
-              // Sort by heureDebut
-              docs.sort((a, b) {
-                final aH = (a.data() as Map<String, dynamic>)['heureDebut'] ?? '';
-                final bH = (b.data() as Map<String, dynamic>)['heureDebut'] ?? '';
-                return aH.toString().compareTo(bH.toString());
-              });
-
-              return Column(
-                children: [
-                  // Status badge
-                  if (docs.isNotEmpty)
+        return Container(
+          color: const Color(0xFFF5F7FA),
+          child: Column(
+            children: [
+              // Day header with date
+              Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
                     Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFF6B35).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                      child: Icon(
+                        Icons.calendar_today,
+                        color: const Color(0xFF10B981),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.circle, size: 8, color: Color(0xFFFF6B35)),
-                          const SizedBox(width: 6),
                           Text(
-                            'EN COURS - ${docs.length} séance(s)',
+                            '${_joursKeys[weekdayIndex].toUpperCase()} ${_selectedDate.day} ${_moisNames[_selectedDate.month]}',
                             style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFFFF6B35),
-                              letterSpacing: 0.5,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          Text(
+                            '${docs.length} séance(s) programmée(s)',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF64748B),
                             ),
                           ),
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
 
-                  // All sessions info (debug)
-                  if (allDocs.isNotEmpty && docs.isEmpty)
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange.shade200),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Trouvé ${allDocs.length} séance(s) pour $selectedDayKey mais aucune pour ce professeur',
-                            style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'ProfesseurIds disponibles:',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
-                          ),
-                          ...allDocs.take(3).map((doc) {
-                            final data = doc.data() as Map<String, dynamic>;
-                            return Text(
-                              '- ${data['professeurId'] ?? 'null'} (${data['professeurName'] ?? 'no name'})',
-                              style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
-
-                  // Schedule list
-                  Expanded(
-                    child: docs.isEmpty
-                        ? _buildEmptyState()
-                        : ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            itemCount: docs.length,
-                            itemBuilder: (context, index) {
-                              final data = docs[index].data() as Map<String, dynamic>;
-                              return _SessionCard(data: data, index: index);
-                            },
-                          ),
-                  ),
-
-                  // Week summary
-                  _buildWeekSummary(profId),
-                ],
-              );
-            },
+              // Time-based schedule grid
+              Expanded(
+                child: _buildTimeGrid(docs),
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTimeGrid(List<QueryDocumentSnapshot> docs) {
+    // Define time slots from 8h to 18h
+    final timeSlots = List.generate(11, (index) => 8 + index); // 8h to 18h
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: timeSlots.length,
+      itemBuilder: (context, index) {
+        final hour = timeSlots[index];
+        
+        // Find sessions that start in this hour
+        final sessionsInHour = docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final heureDebut = data['heureDebut'] ?? '';
+          if (heureDebut.isEmpty) return false;
+          final startHour = int.tryParse(heureDebut.split(':')[0]) ?? 0;
+          return startHour == hour;
+        }).toList();
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Time label
+              SizedBox(
+                width: 60,
+                child: Text(
+                  '${hour}h00',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ),
+              // Sessions or empty slot
+              Expanded(
+                child: sessionsInHour.isEmpty
+                    ? Container(
+                        height: 60,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      )
+                    : Column(
+                        children: sessionsInHour.map((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          return _TimeSlotCard(data: data);
+                        }).toList(),
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -502,121 +588,16 @@ class _ProfEmploiTempsPageState extends State<ProfEmploiTempsPage> {
     );
   }
 
-  Widget _buildWeekSummary(String profId) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('emploi_du_temps')
-          .where('professeurId', isEqualTo: profId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox.shrink();
-        }
-
-        final allDocs = snapshot.data!.docs;
-
-        // Calculate total hours for trimester
-        int totalMinutes = 0;
-        int coursCount = 0;
-
-        for (final doc in allDocs) {
-          final data = doc.data() as Map<String, dynamic>;
-          final heureDebut = data['heureDebut'] ?? '';
-          final heureFin = data['heureFin'] ?? '';
-          
-          if (heureDebut.isNotEmpty && heureFin.isNotEmpty) {
-            final debut = _parseTime(heureDebut);
-            final fin = _parseTime(heureFin);
-            if (debut != null && fin != null) {
-              totalMinutes += fin.difference(debut).inMinutes;
-              coursCount++;
-            }
-          }
-        }
-
-        final totalHours = totalMinutes ~/ 60;
-
-        return Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1E3A5F), Color(0xFF2D4A6F)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1E3A5F).withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Résumé du Trimestre $_currentTrimester',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _SummaryItem(
-                      label: 'Total Heures',
-                      value: '${totalHours}h',
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 40,
-                    color: Colors.white.withValues(alpha: 0.2),
-                  ),
-                  Expanded(
-                    child: _SummaryItem(
-                      label: 'Total Cours',
-                      value: '$coursCount',
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
-  DateTime? _parseTime(String time) {
-    try {
-      final parts = time.split(':');
-      if (parts.length != 2) return null;
-      final hour = int.parse(parts[0]);
-      final minute = int.parse(parts[1]);
-      final now = DateTime.now();
-      return DateTime(now.year, now.month, now.day, hour, minute);
-    } catch (e) {
-      return null;
-    }
-  }
 }
 
-class _SessionCard extends StatelessWidget {
+class _TimeSlotCard extends StatelessWidget {
   final Map<String, dynamic> data;
-  final int index;
 
-  const _SessionCard({required this.data, required this.index});
+  const _TimeSlotCard({required this.data});
 
   @override
   Widget build(BuildContext context) {
@@ -625,214 +606,115 @@ class _SessionCard extends StatelessWidget {
     final matiere = data['matiere'] ?? data['matiereId'] ?? '';
     final className = data['className'] ?? '';
     final salle = data['salle'] ?? '';
-    final estAnnule = data['estAnnule'] ?? false;
 
-    // Color based on index
-    final colors = [
-      const Color(0xFF6366F1), // Indigo
-      const Color(0xFFEC4899), // Pink
-      const Color(0xFF10B981), // Green
-      const Color(0xFFF59E0B), // Amber
-      const Color(0xFF8B5CF6), // Purple
-      const Color(0xFF3B82F6), // Blue
-    ];
-    final color = colors[index % colors.length];
+    // Calculate duration in minutes
+    int durationMinutes = 60; // default
+    if (heureDebut.isNotEmpty && heureFin.isNotEmpty) {
+      try {
+        final startParts = heureDebut.split(':');
+        final endParts = heureFin.split(':');
+        final startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+        final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+        durationMinutes = endMinutes - startMinutes;
+      } catch (e) {
+        // Keep default
+      }
+    }
 
-    // Icon based on subject
-    IconData icon = Icons.book;
+    // Height based on duration (1 minute = 1 pixel, minimum 60px)
+    final height = durationMinutes.toDouble().clamp(60.0, 300.0);
+
+    // Color based on subject
+    Color color = const Color(0xFF10B981);
     if (matiere.toLowerCase().contains('math')) {
-      icon = Icons.calculate;
+      color = const Color(0xFF6366F1);
     } else if (matiere.toLowerCase().contains('physique') || matiere.toLowerCase().contains('chimie')) {
-      icon = Icons.science;
-    } else if (matiere.toLowerCase().contains('histoire') || matiere.toLowerCase().contains('géo')) {
-      icon = Icons.public;
+      color = const Color(0xFFEC4899);
     } else if (matiere.toLowerCase().contains('français') || matiere.toLowerCase().contains('littérature')) {
-      icon = Icons.menu_book;
+      color = const Color(0xFFF59E0B);
     } else if (matiere.toLowerCase().contains('anglais') || matiere.toLowerCase().contains('langue')) {
-      icon = Icons.language;
-    } else if (matiere.toLowerCase().contains('sport') || matiere.toLowerCase().contains('eps')) {
-      icon = Icons.sports_soccer;
+      color = const Color(0xFF8B5CF6);
+    } else if (matiere.toLowerCase().contains('histoire') || matiere.toLowerCase().contains('géo')) {
+      color = const Color(0xFF3B82F6);
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      height: height,
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: estAnnule ? Colors.grey.shade300 : color.withValues(alpha: 0.3),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: estAnnule ? Colors.transparent : color.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: color.withValues(alpha: 0.1),
+        border: Border.all(color: color, width: 2),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Time badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: estAnnule ? Colors.grey.shade200 : color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+            // Time range
+            Row(
+              children: [
+                Icon(Icons.access_time, size: 14, color: color),
+                const SizedBox(width: 4),
+                Text(
+                  '$heureDebut - $heureFin',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            // Subject
+            Text(
+              matiere,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
               ),
-              child: Column(
-                children: [
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            // Room and class
+            Row(
+              children: [
+                if (salle.isNotEmpty) ...[
+                  Icon(Icons.meeting_room, size: 12, color: const Color(0xFF64748B)),
+                  const SizedBox(width: 4),
                   Text(
-                    heureDebut.split(':')[0],
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: estAnnule ? Colors.grey : color,
-                    ),
-                  ),
-                  Text(
-                    ':${heureDebut.split(':').length > 1 ? heureDebut.split(':')[1] : '00'}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: estAnnule ? Colors.grey : color,
-                    ),
-                  ),
-                  Container(
-                    width: 20,
-                    height: 1,
-                    color: estAnnule ? Colors.grey : color,
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                  ),
-                  Text(
-                    heureFin.split(':')[0],
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: estAnnule ? Colors.grey : color,
-                    ),
-                  ),
-                  Text(
-                    ':${heureFin.split(':').length > 1 ? heureFin.split(':')[1] : '00'}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: estAnnule ? Colors.grey : color,
+                    salle,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    matiere,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: estAnnule ? Colors.grey : const Color(0xFF1E293B),
-                      decoration: estAnnule ? TextDecoration.lineThrough : null,
+                if (salle.isNotEmpty && className.isNotEmpty)
+                  const Text(' • ', style: TextStyle(color: Color(0xFF64748B))),
+                if (className.isNotEmpty) ...[
+                  Icon(Icons.people, size: 12, color: const Color(0xFF64748B)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      className,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  if (salle.isNotEmpty)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.meeting_room,
-                          size: 14,
-                          color: estAnnule ? Colors.grey : const Color(0xFF64748B),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          salle,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: estAnnule ? Colors.grey : const Color(0xFF64748B),
-                          ),
-                        ),
-                        if (className.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          const Text('•', style: TextStyle(color: Color(0xFF64748B))),
-                          const SizedBox(width: 8),
-                        ],
-                      ],
-                    ),
-                  if (className.isNotEmpty)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.people,
-                          size: 14,
-                          color: estAnnule ? Colors.grey : const Color(0xFF64748B),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          className,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: estAnnule ? Colors.grey : const Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
                 ],
-              ),
-            ),
-            
-            // Icon
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: estAnnule ? Colors.grey.shade100 : color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: estAnnule ? Colors.grey : color,
-                size: 24,
-              ),
+              ],
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SummaryItem extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _SummaryItem({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.white.withValues(alpha: 0.8),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-      ],
     );
   }
 }

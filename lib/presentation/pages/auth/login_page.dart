@@ -420,10 +420,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       {'icon': Icons.analytics, 'text': 'Advanced Analytics'},
     ];
 
-    return Column(
+    return Wrap(
+      spacing: 20,
+      runSpacing: 20,
       children: features.map((feature) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 20),
+        return SizedBox(
+          width: 250,
           child: Row(
             children: [
               Container(
@@ -444,12 +446,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                 ),
               ),
               const SizedBox(width: 16),
-              Text(
-                feature['text'] as String,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Text(
+                  feature['text'] as String,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -468,19 +472,19 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.15),
-                  Colors.white.withOpacity(0.05),
-                ],
-              ),
+              color: Colors.white, // White background for better contrast
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
                 color: Colors.white.withOpacity(0.2),
                 width: 1.5,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             padding: const EdgeInsets.all(40),
             child: Form(
@@ -494,16 +498,16 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                     style: TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                      color: Color(0xFF1E293B), // Dark text
                       letterSpacing: -1,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'Enter your credentials to access your account',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.white.withOpacity(0.7),
+                      color: Color(0xFF64748B), // Gray text
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -529,7 +533,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         _isPasswordVisible
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
-                        color: Colors.white.withOpacity(0.6),
+                        color: const Color(0xFF64748B), // Gray icon
                         size: 22,
                       ),
                       onPressed: () {
@@ -544,12 +548,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () => _showForgotPasswordDialog(context),
-                      child: Text(
+                      child: const Text(
                         'Forgot Password?',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white.withOpacity(0.9),
+                          color: Color(0xFF60A5FA), // Blue link
                         ),
                       ),
                     ),
@@ -584,21 +588,21 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.white.withOpacity(0.9),
+            color: Color(0xFF1E293B), // Dark text
             letterSpacing: 0.5,
           ),
         ),
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: const Color(0xFFF8FAFC), // Light gray background
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.2),
-              width: 1,
+              color: const Color(0xFFE2E8F0),
+              width: 1.5,
             ),
           ),
           child: TextFormField(
@@ -608,19 +612,19 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             validator: validator,
             style: const TextStyle(
               fontSize: 16,
-              color: Colors.white,
+              color: Color(0xFF1E293B), // Dark text color
               fontWeight: FontWeight.w500,
             ),
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: TextStyle(
+              hintStyle: const TextStyle(
                 fontSize: 16,
-                color: Colors.white.withOpacity(0.4),
+                color: Color(0xFF94A3B8), // Gray hint text
                 fontWeight: FontWeight.w400,
               ),
               prefixIcon: Icon(
                 icon,
-                color: Colors.white.withOpacity(0.6),
+                color: const Color(0xFF64748B), // Gray icon
                 size: 22,
               ),
               suffixIcon: suffixIcon,
